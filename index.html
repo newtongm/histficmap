@@ -835,7 +835,7 @@ function loadBooks(newBooks, statusText){
    Columns: id, series, series_order, title, author, subgenre, year_start,
    year_end, published, synopsis, lat, lon, location_label, extra_locations
    (extra_locations format: "lat|lon|label;lat|lon|label" for extra stops). */
-const DATA_SOURCE_URL = ''; // e.g. 'https://docs.google.com/spreadsheets/d/XXXX/pub?output=csv'
+const DATA_SOURCE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbR_sSuMcqTl-vDlKwZgdbH8RJrdS5FUWAbX7KcE3EEEFThQT8vye_V2xOjzyzXQMcYPxTh64NRsv2/pub?output=csv'; // e.g. 'https://docs.google.com/spreadsheets/d/XXXX/pub?output=csv'
 
 function slugify(s){ return String(s||'book').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 
