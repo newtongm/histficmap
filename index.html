@@ -83,20 +83,21 @@
   /* ---------- Timeline ---------- */
   .timeline-wrap{ padding:30px 40px 10px; border-top:1px solid var(--line-strong); }
   .timeline-kicker{ text-align:center; font-size:12.5px; font-style:italic; color:var(--ink-faint); margin-bottom:6px; }
-  .years-track{ position:relative; height:64px; }
-  .years-baseline{ position:absolute; left:0; right:0; top:30px; height:1px; background:var(--line-strong); }
-  .year-tick{ position:absolute; top:22px; width:1px; height:16px; background:var(--line); }
-  .year-tick.decade{ background:var(--ink-faint); }
-  .year-label{ position:absolute; top:40px; transform:translateX(-50%); font-size:12px; font-style:italic; color:var(--ink-faint); white-space:nowrap; }
-  .book-marker{ position:absolute; top:24px; transform:translateX(-50%); width:12px; height:12px; border-radius:50%; border:1.5px solid var(--paper); cursor:pointer; box-shadow:0 0 0 1px var(--line-strong); transition:transform .12s ease, opacity .3s ease; }
-  .book-marker:hover, .book-marker.selected{ transform:translateX(-50%) scale(1.35); }
-  .book-marker.selected{ outline:2px solid var(--ink); outline-offset:2px; }
-  .book-marker.marker-past{ opacity:0.4; }
-  .book-marker.marker-future{ opacity:0.28; }
-  input[type=range]#yearSlider{ position:absolute; left:0; right:0; top:8px; width:100%; -webkit-appearance:none; background:transparent; height:36px; margin:0; }
-  input[type=range]#yearSlider::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; margin-top:8px; border-radius:50%; background:var(--ink); border:2px solid var(--paper); box-shadow:0 0 0 1px var(--ink); cursor:pointer; }
-  input[type=range]#yearSlider::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:var(--ink); border:2px solid var(--paper); cursor:pointer; }
-  input[type=range]#yearSlider::-webkit-slider-runnable-track{ background:transparent; }
+  .ruler-outer{ position:relative; height:84px; overflow:hidden; cursor:grab; user-select:none; -webkit-user-select:none; }
+  .ruler-outer.dragging{ cursor:grabbing; }
+  .ruler-scroll{ position:absolute; inset:0; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
+  .ruler-scroll::-webkit-scrollbar{ height:6px; }
+  .ruler-scroll::-webkit-scrollbar-thumb{ background:var(--line-strong); border-radius:3px; }
+  .ruler-track{ position:relative; height:100%; }
+  .ruler-tick{ position:absolute; top:6px; width:1px; height:16px; background:var(--line); }
+  .ruler-tick.major{ top:2px; height:24px; background:var(--ink-faint); }
+  .ruler-label{ position:absolute; top:32px; transform:translateX(-50%); font-size:11.5px; font-style:italic; color:var(--ink-faint); white-space:nowrap; pointer-events:none; }
+  .ruler-marker{ position:absolute; top:50px; transform:translateX(-50%); width:11px; height:11px; border-radius:50%; border:1.5px solid var(--paper); cursor:pointer; box-shadow:0 0 0 1px var(--line-strong); transition:transform .12s ease, opacity .3s ease; }
+  .ruler-marker:hover, .ruler-marker.selected{ transform:translateX(-50%) scale(1.35); }
+  .ruler-marker.selected{ outline:2px solid var(--ink); outline-offset:2px; }
+  .ruler-needle{ position:absolute; top:0; bottom:0; left:50%; width:0; pointer-events:none; z-index:5; }
+  .ruler-needle::before{ content:''; position:absolute; top:0; bottom:0; left:0; width:2px; background:var(--ink); transform:translateX(-1px); }
+  .ruler-needle::after{ content:''; position:absolute; top:-1px; left:0; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:7px solid var(--ink); transform:translateX(-6px); }
 
   .active-year{ text-align:center; font-size:15px; color:var(--ink-soft); font-style:italic; margin:6px 0 22px; }
   .active-year b{ color:var(--ink); font-style:normal; font-weight:600; }
@@ -175,10 +176,12 @@
     </div>
 
     <div class="timeline-wrap">
-      <div class="timeline-kicker">Drag the year to move through the collection</div>
-      <div class="years-track" id="yearsTrack">
-        <div class="years-baseline"></div>
-        <input type="range" id="yearSlider" min="1799" max="1821" step="1" value="1799">
+      <div class="timeline-kicker">Scroll or drag the timeline &mdash; the needle marks the selected year</div>
+      <div class="ruler-outer" id="rulerOuter">
+        <div class="ruler-scroll" id="rulerScroll" tabindex="0">
+          <div class="ruler-track" id="rulerTrack"></div>
+        </div>
+        <div class="ruler-needle" aria-hidden="true"></div>
       </div>
       <div class="active-year" id="activeYearLabel"></div>
       <div class="chip-row" id="chipRow"></div>
@@ -263,6 +266,11 @@ let currentYear = YEAR_MIN;
 let activeSeries = new Set();
 let activeSubgenres = new Set();
 let showAll = false;
+
+// Years are stored as plain integers (negative = BC) so date math, sorting,
+// and range comparisons all work correctly without special-casing. This is
+// purely a display-time formatter — never used for calculation.
+function formatYear(y){ return y<0 ? `${Math.abs(y)} BC` : `${y}`; }
 
 /* ---------------- Map projection (whole world) ---------------- */
 const VB_W=1200, VB_H=450;
@@ -648,50 +656,144 @@ function computeYearRange(books){
   if(!isFinite(min)){ min=1800; max=1800; }
   return [min, max];
 }
-function yearToPct(y){ return (y-YEAR_MIN)/(YEAR_MAX-YEAR_MIN||1)*100; }
+/* ---------------- Timeline: scrollable ruler with a fixed center needle ----------------
+   Unlike a percentage-based slider (which falls apart once the range spans
+   thousands of years — a single year becomes a fraction of a pixel), this
+   lays the whole timeline out at a fixed pixels-per-year scale and lets the
+   user scroll through it. The needle stays visually fixed in the center of
+   the viewport; scrolling changes which year sits under it. */
+let PX_PER_YEAR = 4;
+let RULER_VIEWPORT_W = 700;
+let suppressScrollRender = false;
+let scrollSuppressTimer = null;
+
+function scrollLeftForYear(y){ return (y-YEAR_MIN)*PX_PER_YEAR; }
+function yearFromScrollLeft(px){ return YEAR_MIN + px/PX_PER_YEAR; }
 
 function buildTimelineAxis(){
-  const slider = document.getElementById('yearSlider');
-  slider.min = YEAR_MIN; slider.max = YEAR_MAX; slider.value = YEAR_MIN;
-  const track = document.getElementById('yearsTrack');
-  track.querySelectorAll('.axis-el').forEach(e=>e.remove());
+  const outer = document.getElementById('rulerOuter');
+  const track = document.getElementById('rulerTrack');
+  RULER_VIEWPORT_W = outer.clientWidth || 700;
+  // Target: roughly 100 years visible either side of the needle (200 total).
+  PX_PER_YEAR = Math.max(2, RULER_VIEWPORT_W/200);
 
   const span = YEAR_MAX-YEAR_MIN;
-  const tickStep = span>300 ? 20 : span>150 ? 10 : span>40 ? 1 : 1;
-  const labelStep = span>300 ? 100 : span>150 ? 50 : span>40 ? 10 : 5;
-  for(let y=YEAR_MIN; y<=YEAR_MAX; y+=tickStep){
-    const pct = yearToPct(y);
+  track.style.width = (span*PX_PER_YEAR + RULER_VIEWPORT_W) + 'px';
+  track.querySelectorAll('.axis-el').forEach(e=>e.remove());
+
+  // Coarser tick/label spacing for huge spans (millennia) than for a tight one.
+  const minorStep = span>1000 ? 50 : span>300 ? 20 : span>60 ? 10 : 5;
+  const majorStep = span>1000 ? 500 : span>300 ? 100 : span>60 ? 50 : 20;
+
+  const startY = Math.ceil(YEAR_MIN/minorStep)*minorStep;
+  for(let y=startY; y<=YEAR_MAX; y+=minorStep){
+    const x = RULER_VIEWPORT_W/2 + (y-YEAR_MIN)*PX_PER_YEAR;
     const tick = document.createElement('div');
-    tick.className = 'year-tick axis-el' + (y%(labelStep)===0? ' decade':'');
-    tick.style.left = pct+'%';
+    tick.className = 'ruler-tick axis-el' + (y%majorStep===0 ? ' major':'');
+    tick.style.left = x+'px';
     track.appendChild(tick);
-    if(y%labelStep===0 || y===YEAR_MIN || y===YEAR_MAX){
+    if(y%majorStep===0){
       const lbl=document.createElement('div');
-      lbl.className='year-label axis-el';
-      lbl.style.left=pct+'%';
-      lbl.textContent=y;
+      lbl.className='ruler-label axis-el';
+      lbl.style.left=x+'px';
+      lbl.textContent=formatYear(y);
       track.appendChild(lbl);
     }
   }
 }
 
 function buildTimelineMarkers(list){
-  const track = document.getElementById('yearsTrack');
+  const track = document.getElementById('rulerTrack');
   track.querySelectorAll('.marker-el').forEach(e=>e.remove());
-  const slider = document.getElementById('yearSlider');
   list.forEach(b=>{
+    const x = RULER_VIEWPORT_W/2 + (b.yearStart-YEAR_MIN)*PX_PER_YEAR;
     const m=document.createElement('div');
-    m.className='book-marker marker-el';
-    m.style.left = yearToPct(b.yearStart)+'%';
+    m.className='ruler-marker marker-el';
+    m.style.left = x+'px';
     m.style.background = colorFor(b);
-    m.title = b.title+' ('+b.yearStart+')';
+    m.title = b.title+' ('+formatYear(b.yearStart)+')';
     m.dataset.id=b.id;
-    m.addEventListener('click', ()=>{
-      slider.value = b.yearStart;
-      selectBook(b.id, true);
-      renderYear(b.yearStart);
-    });
+    m.addEventListener('click', ()=>{ selectBook(b.id, true); scrollToYear(b.yearStart); });
     track.appendChild(m);
+  });
+}
+
+// Programmatic jump (clicking a marker, selecting a book): smooth-scrolls the
+// ruler and updates the map immediately, rather than waiting for scroll
+// events to settle — suppressed live-scroll handling for the duration so the
+// two don't fight and show a flickering intermediate year.
+function scrollToYear(y){
+  const scrollEl = document.getElementById('rulerScroll');
+  suppressScrollRender = true;
+  scrollEl.scrollTo({left: scrollLeftForYear(y), behavior:'smooth'});
+  renderYear(y);
+  clearTimeout(scrollSuppressTimer);
+  scrollSuppressTimer = setTimeout(()=>{ suppressScrollRender=false; }, 700);
+}
+function jumpToYear(y){ // instant, no animation — used for initial load
+  document.getElementById('rulerScroll').scrollLeft = scrollLeftForYear(y);
+  renderYear(y);
+}
+
+function rebuildRulerLayout(){
+  // Recomputes PX_PER_YEAR/track width against the container's *current*
+  // width and repositions everything, keeping the same selected year centered.
+  // Without this, resizing the window after load leaves the ruler's internal
+  // scale stale relative to its actual rendered width — which breaks the
+  // scroll math (drag/scroll either does nothing or feels wrong).
+  const y = currentYear;
+  buildTimelineAxis();
+  buildTimelineMarkers(visibleBooks());
+  jumpToYear(y);
+}
+
+function initRulerInteraction(){
+  const outer = document.getElementById('rulerOuter');
+  const scrollEl = document.getElementById('rulerScroll');
+
+  let resizeTimer=null;
+  window.addEventListener('resize', ()=>{
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(rebuildRulerLayout, 200);
+  });
+  // One-time safety re-check shortly after load, in case the very first
+  // width measurement happened before layout had fully settled.
+  setTimeout(rebuildRulerLayout, 250);
+
+  scrollEl.addEventListener('scrollend', ()=>{ suppressScrollRender=false; });
+
+  let rafPending=false;
+  scrollEl.addEventListener('scroll', ()=>{
+    if(suppressScrollRender || rafPending) return;
+    rafPending=true;
+    requestAnimationFrame(()=>{
+      rafPending=false;
+      const y = Math.round(Math.max(YEAR_MIN, Math.min(YEAR_MAX, yearFromScrollLeft(scrollEl.scrollLeft))));
+      if(y!==currentYear) renderYear(y);
+    });
+  });
+
+  // Click-and-drag panning (native overflow-x:auto has no built-in drag-to-scroll)
+  let dragging=false, dragStartX=0, dragStartScroll=0, dragMoved=false;
+  outer.addEventListener('mousedown', e=>{
+    dragging=true; dragMoved=false; dragStartX=e.clientX; dragStartScroll=scrollEl.scrollLeft;
+    outer.classList.add('dragging');
+  });
+  window.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    if(Math.abs(e.clientX-dragStartX)>2) dragMoved=true;
+    scrollEl.scrollLeft = dragStartScroll - (e.clientX-dragStartX);
+  });
+  window.addEventListener('mouseup', ()=>{ dragging=false; outer.classList.remove('dragging'); });
+
+  // Redirect plain vertical wheel scrolling into horizontal ruler movement
+  scrollEl.addEventListener('wheel', e=>{
+    if(Math.abs(e.deltaY) > Math.abs(e.deltaX)){ e.preventDefault(); scrollEl.scrollLeft += e.deltaY; }
+  }, {passive:false});
+
+  scrollEl.addEventListener('keydown', e=>{
+    if(e.key==='ArrowLeft'){ scrollToYear(currentYear-1); e.preventDefault(); }
+    else if(e.key==='ArrowRight'){ scrollToYear(currentYear+1); e.preventDefault(); }
   });
 }
 
@@ -726,7 +828,7 @@ function applyYearOpacity(y){
 
 function highlightPin(id){
   document.querySelectorAll('.pin').forEach(p=>p.classList.toggle('selected', p.dataset.id===id));
-  document.querySelectorAll('.book-marker').forEach(m=>m.classList.toggle('selected', m.dataset.id===id));
+  document.querySelectorAll('.ruler-marker').forEach(m=>m.classList.toggle('selected', m.dataset.id===id));
 }
 
 function renderEmpty(msg){ document.getElementById('detailPanel').innerHTML = `<div class="empty-state">${msg}</div>`; }
@@ -734,7 +836,7 @@ function renderEmpty(msg){ document.getElementById('detailPanel').innerHTML = `<
 function renderDetail(b){
   const hex = colorFor(b);
   const amazonQuery = encodeURIComponent(b.title + ' ' + (b.author||''));
-  const yearSpan = b.yearEnd!==b.yearStart ? `${b.yearStart}\u2013${b.yearEnd}` : `${b.yearStart}`;
+  const yearSpan = b.yearEnd!==b.yearStart ? `${formatYear(b.yearStart)}\u2013${formatYear(b.yearEnd)}` : formatYear(b.yearStart);
   const settingLabel = b.locations.map(l=>l.label).filter(Boolean).join(' \u2192 ');
   document.getElementById('detailPanel').innerHTML = `
     <div class="dispatch">
@@ -775,8 +877,7 @@ function selectBook(id, alsoSyncTimeline){
   highlightPin(id);
   renderDetail(b);
   if(alsoSyncTimeline){
-    document.getElementById('yearSlider').value = b.yearStart;
-    renderYear(b.yearStart);
+    scrollToYear(b.yearStart);
   }
 }
 
@@ -790,11 +891,11 @@ function countryLabelForYear(y){
 function renderYear(y){
   currentYear = y;
   applyYearOpacity(y);
-  document.getElementById('activeYearLabel').innerHTML = `<b>${y}</b> &mdash; ${countryLabelForYear(y)}`;
+  document.getElementById('activeYearLabel').innerHTML = `<b>${formatYear(y)}</b> &mdash; ${countryLabelForYear(y)}`;
   const matches = visibleBooks().filter(b => b.yearStart<=y && b.yearEnd>=y);
   const chipRow = document.getElementById('chipRow');
   chipRow.innerHTML='';
-  document.querySelectorAll('.book-marker').forEach(m=>m.classList.toggle('selected', matches.some(b=>b.id===m.dataset.id)));
+  document.querySelectorAll('.ruler-marker').forEach(m=>m.classList.toggle('selected', matches.some(b=>b.id===m.dataset.id)));
   if(matches.length===0){ renderEmpty("No book recorded for "+y+". Try a marked year on the line above."); return; }
   if(matches.length===1){ renderDetail(matches[0]); }
   else {
@@ -823,8 +924,7 @@ function loadBooks(newBooks, statusText){
   buildTimelineAxis();
   buildPins(visibleBooks());
   buildTimelineMarkers(visibleBooks());
-  currentYear = YEAR_MIN;
-  renderYear(YEAR_MIN);
+  jumpToYear(YEAR_MIN);
 }
 
 /* ---------------- Remote data loading ----------------
@@ -835,7 +935,7 @@ function loadBooks(newBooks, statusText){
    Columns: id, series, series_order, title, author, subgenre, year_start,
    year_end, published, synopsis, lat, lon, location_label, extra_locations
    (extra_locations format: "lat|lon|label;lat|lon|label" for extra stops). */
-const DATA_SOURCE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbR_sSuMcqTl-vDlKwZgdbH8RJrdS5FUWAbX7KcE3EEEFThQT8vye_V2xOjzyzXQMcYPxTh64NRsv2/pub?output=csv'; // e.g. 'https://docs.google.com/spreadsheets/d/XXXX/pub?output=csv'
+const DATA_SOURCE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbR_sSuMcqTl-vDlKwZgdbH8RJrdS5FUWAbX7KcE3EEEFThQT8vye_V2xOjzyzXQMcYPxTh64NRsv2/pub?output=csv';
 
 function slugify(s){ return String(s||'book').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 
@@ -904,8 +1004,8 @@ async function initData(){
 buildBaseMap();
 initZoomPan();
 initFilterUI();
+initRulerInteraction();
 initData();
-document.getElementById('yearSlider').addEventListener('input', e=>renderYear(parseInt(e.target.value,10)));
 </script>
 </body>
 </html>
