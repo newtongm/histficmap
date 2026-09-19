@@ -89,8 +89,11 @@
   .ruler-scroll::-webkit-scrollbar{ height:6px; }
   .ruler-scroll::-webkit-scrollbar-thumb{ background:var(--line-strong); border-radius:3px; }
   .ruler-track{ position:relative; height:100%; }
-  .ruler-tick{ position:absolute; top:6px; width:1px; height:16px; background:var(--line); }
-  .ruler-tick.major{ top:2px; height:24px; background:var(--ink-faint); }
+  .ruler-tick{ position:absolute; background:var(--line); }
+  .ruler-tick.t1{ top:16px; width:1px; height:6px; opacity:0.5; }
+  .ruler-tick.t10{ top:12px; width:1px; height:10px; opacity:0.85; }
+  .ruler-tick.t50{ top:7px; width:1px; height:15px; background:var(--ink-faint); }
+  .ruler-tick.t100{ top:2px; width:1.5px; height:24px; background:var(--ink-faint); }
   .ruler-label{ position:absolute; top:32px; transform:translateX(-50%); font-size:11.5px; font-style:italic; color:var(--ink-faint); white-space:nowrap; pointer-events:none; }
   .ruler-marker{ position:absolute; top:50px; transform:translateX(-50%); width:11px; height:11px; border-radius:50%; border:1.5px solid var(--paper); cursor:pointer; box-shadow:0 0 0 1px var(--line-strong); transition:transform .12s ease, opacity .3s ease; }
   .ruler-marker:hover, .ruler-marker.selected{ transform:translateX(-50%) scale(1.35); }
@@ -99,8 +102,7 @@
   .ruler-needle::before{ content:''; position:absolute; top:0; bottom:0; left:0; width:2px; background:var(--ink); transform:translateX(-1px); }
   .ruler-needle::after{ content:''; position:absolute; top:-1px; left:0; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:7px solid var(--ink); transform:translateX(-6px); }
 
-  .active-year{ text-align:center; font-size:15px; color:var(--ink-soft); font-style:italic; margin:6px 0 22px; }
-  .active-year b{ color:var(--ink); font-style:normal; font-weight:600; }
+  .active-year{ text-align:center; font-size:26px; font-weight:600; color:var(--ink); margin:10px 0 22px; letter-spacing:0.3px; }
 
   .chip-row{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:22px; min-height:30px; }
   .chip{ font-family:inherit; font-size:13px; border:1px solid var(--line-strong); background:var(--paper-dark); color:var(--ink-soft); padding:5px 12px; border-radius:14px; cursor:pointer; }
@@ -502,11 +504,28 @@ function buildPins(list){
   const routeBooks = list.filter(b=>b.locations.length>1);
   const singleBooks = list.filter(b=>b.locations.length===1);
   routeBooks.forEach(b=>pinsLayer.appendChild(renderBookGeo(b)));
-  const clusters = clusterBooks(singleBooks, zScale);
-  clusters.forEach(group=>{
-    if(group.length===1){ pinsLayer.appendChild(renderBookGeo(group[0].book)); }
-    else { pinsLayer.appendChild(renderClusterGroup(group)); }
-  });
+
+  function renderClusterSet(books){
+    clusterBooks(books, zScale).forEach(group=>{
+      if(group.length===1){ pinsLayer.appendChild(renderBookGeo(group[0].book)); }
+      else { pinsLayer.appendChild(renderClusterGroup(group)); }
+    });
+  }
+
+  if(showAll){
+    renderClusterSet(singleBooks);
+  } else {
+    // Two separate clustering passes: a book currently in the fade window
+    // clusters only with other currently-relevant books (so a cluster's count
+    // reflects what's actually highlighted right now), while temporally
+    // distant books cluster separately among themselves as a faint background
+    // layer — still visible and clickable (so you can spot and jump to a
+    // faded era), just never inflating a "now" cluster's number.
+    const relevant = singleBooks.filter(b=>isYearRelevant(b, currentYear));
+    const faded = singleBooks.filter(b=>!isYearRelevant(b, currentYear));
+    renderClusterSet(relevant);
+    renderClusterSet(faded);
+  }
 }
 
 /* ---------------- Zoom / pan ---------------- */
@@ -612,8 +631,8 @@ function updateDropdownLabel(countId, activeSet, total){
 }
 
 function buildFilterControls(){
-  const allSeries = [...new Set(BOOKS.map(b=>b.series))];
-  const allSubgenres = [...new Set(BOOKS.map(b=>b.subgenre))];
+  const allSeries = [...new Set(BOOKS.map(b=>b.series))].sort((a,b)=>a.localeCompare(b));
+  const allSubgenres = [...new Set(BOOKS.map(b=>b.subgenre))].sort((a,b)=>a.localeCompare(b));
   activeSeries = new Set(allSeries);
   activeSubgenres = new Set(allSubgenres);
 
@@ -640,7 +659,11 @@ function initFilterUI(){
   document.getElementById('subgenreDropdownBtn').addEventListener('click', e=>{ e.stopPropagation(); togglePanel('subgenrePanel'); });
   document.querySelectorAll('.dropdown-panel').forEach(p=>p.addEventListener('click', e=>e.stopPropagation()));
   document.addEventListener('click', ()=>{ document.querySelectorAll('.dropdown-panel').forEach(p=>p.classList.remove('open')); });
-  document.getElementById('showAllToggle').addEventListener('change', e=>{ showAll = e.target.checked; applyYearOpacity(currentYear); });
+  document.getElementById('showAllToggle').addEventListener('change', e=>{
+    showAll = e.target.checked;
+    buildPins(visibleBooks());
+    applyYearOpacity(currentYear);
+  });
 }
 
 function applyFilters(){
@@ -681,18 +704,21 @@ function buildTimelineAxis(){
   track.style.width = (span*PX_PER_YEAR + RULER_VIEWPORT_W) + 'px';
   track.querySelectorAll('.axis-el').forEach(e=>e.remove());
 
-  // Coarser tick/label spacing for huge spans (millennia) than for a tight one.
-  const minorStep = span>1000 ? 50 : span>300 ? 20 : span>60 ? 10 : 5;
-  const majorStep = span>1000 ? 500 : span>300 ? 100 : span>60 ? 50 : 20;
+  // Every year gets a tick, weighted by significance (1/10/50/100) via CSS
+  // class rather than by skipping years — labels stay sparse/adaptive since
+  // labeling every year would be unreadable at any span.
+  const labelStep = span>1000 ? 500 : span>300 ? 100 : span>100 ? 50 : span>30 ? 10 : 5;
 
-  const startY = Math.ceil(YEAR_MIN/minorStep)*minorStep;
-  for(let y=startY; y<=YEAR_MAX; y+=minorStep){
+  const startY = Math.ceil(YEAR_MIN);
+  const endY = Math.floor(YEAR_MAX);
+  for(let y=startY; y<=endY; y++){
     const x = RULER_VIEWPORT_W/2 + (y-YEAR_MIN)*PX_PER_YEAR;
+    const tier = y%100===0 ? 't100' : y%50===0 ? 't50' : y%10===0 ? 't10' : 't1';
     const tick = document.createElement('div');
-    tick.className = 'ruler-tick axis-el' + (y%majorStep===0 ? ' major':'');
+    tick.className = 'ruler-tick axis-el '+tier;
     tick.style.left = x+'px';
     track.appendChild(tick);
-    if(y%majorStep===0){
+    if(y%labelStep===0){
       const lbl=document.createElement('div');
       lbl.className='ruler-label axis-el';
       lbl.style.left=x+'px';
@@ -799,15 +825,19 @@ function initRulerInteraction(){
 
 /* ---------------- Selection / detail rendering ---------------- */
 const FADE_WINDOW = 10; // years either side of a book's date range before it's fully invisible
+const FADE_FLOOR = 0.08; // faded pins stay faintly visible (and clickable) rather than truly invisible
 
 function yearOpacity(b, y){
-  const FLOOR = 0.08; // faded pins stay faintly visible (and clickable) rather than truly invisible
   let dist;
   if(y>=b.yearStart && y<=b.yearEnd) dist = 0;
   else dist = Math.min(Math.abs(y-b.yearStart), Math.abs(y-b.yearEnd));
-  if(dist>=FADE_WINDOW) return FLOOR;
-  return FLOOR + (1-FLOOR) * (1 - dist/FADE_WINDOW);
+  if(dist>=FADE_WINDOW) return FADE_FLOOR;
+  return FADE_FLOOR + (1-FADE_FLOOR) * (1 - dist/FADE_WINDOW);
 }
+// Whether a book is "in season" for clustering purposes — same boundary as
+// the opacity fade, so a cluster's displayed count matches what's actually
+// emphasized on screen, not just what's spatially nearby regardless of era.
+function isYearRelevant(b, y){ return yearOpacity(b, y) > FADE_FLOOR; }
 
 function applyYearOpacity(y){
   document.querySelectorAll('.book-geo').forEach(g=>{
@@ -881,17 +911,11 @@ function selectBook(id, alsoSyncTimeline){
   }
 }
 
-function countryLabelForYear(y){
-  const matches = visibleBooks().filter(b => b.yearStart<=y && b.yearEnd>=y);
-  if(matches.length===0) return 'no book underway';
-  const places=[...new Set(matches.map(b=>b.locations[0]?.label).filter(Boolean))];
-  return places.join(' &middot; ');
-}
-
 function renderYear(y){
   currentYear = y;
   applyYearOpacity(y);
-  document.getElementById('activeYearLabel').innerHTML = `<b>${formatYear(y)}</b> &mdash; ${countryLabelForYear(y)}`;
+  scheduleRecluster();
+  document.getElementById('activeYearLabel').textContent = formatYear(y);
   const matches = visibleBooks().filter(b => b.yearStart<=y && b.yearEnd>=y);
   const chipRow = document.getElementById('chipRow');
   chipRow.innerHTML='';
@@ -917,6 +941,8 @@ function renderYear(y){
 }
 
 /* ---------------- Load orchestration ---------------- */
+const DEFAULT_START_YEAR = 1800; // lands the initial view somewhere with real pin density, not just the sparse start of the range
+
 function loadBooks(newBooks, statusText){
   BOOKS = newBooks;
   [YEAR_MIN, YEAR_MAX] = computeYearRange(BOOKS);
@@ -924,7 +950,7 @@ function loadBooks(newBooks, statusText){
   buildTimelineAxis();
   buildPins(visibleBooks());
   buildTimelineMarkers(visibleBooks());
-  jumpToYear(YEAR_MIN);
+  jumpToYear(Math.max(YEAR_MIN, Math.min(YEAR_MAX, DEFAULT_START_YEAR)));
 }
 
 /* ---------------- Remote data loading ----------------
