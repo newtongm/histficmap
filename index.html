@@ -47,6 +47,8 @@
   .dropdown-actions{ display:flex; justify-content:space-between; font-size:11.5px; padding:2px 6px 8px; border-bottom:1px solid var(--line); margin-bottom:6px; }
   .dropdown-actions button{ background:none; border:none; color:var(--brass-deep); font-family:inherit; font-size:11.5px; cursor:pointer; padding:0; text-decoration:underline; }
   .dropdown-row{ display:flex; align-items:center; gap:8px; padding:5px 6px; border-radius:3px; font-size:13px; cursor:pointer; }
+  .dropdown-row.unavailable{ opacity:0.4; }
+  .dropdown-row.unavailable span{ font-style:italic; }
   .dropdown-row:hover{ background:var(--paper-dark); }
   .dropdown-row input[type=checkbox]{ accent-color:var(--ink); }
   .dropdown-row i{ width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
@@ -56,7 +58,7 @@
   .chart-wrap{ position:relative; padding:18px 18px 8px; cursor:grab; }
   svg#chart{ width:100%; height:auto; display:block; touch-action:none; }
   .chart-wrap.dragging{ cursor:grabbing; }
-  .zoom-controls{ position:absolute; top:28px; right:28px; display:flex; flex-direction:column; border:1px solid var(--line-strong); border-radius:4px; overflow:hidden; background:var(--paper); box-shadow:0 3px 10px -4px rgba(42,33,24,0.35); }
+  .zoom-controls{ position:absolute; top:28px; right:28px; display:flex; flex-direction:column; align-items:center; border:1px solid var(--line-strong); border-radius:4px; overflow:hidden; background:var(--paper); box-shadow:0 3px 10px -4px rgba(42,33,24,0.35); }
   .zoom-controls button{ width:30px; height:30px; font-family:inherit; font-size:16px; line-height:1; color:var(--ink-soft); background:transparent; border:none; border-bottom:1px solid var(--line); cursor:pointer; }
   .zoom-controls button:last-child{ border-bottom:none; }
   .zoom-controls button:hover{ background:var(--paper-dark); color:var(--ink); }
@@ -528,7 +530,28 @@ let zScale=1, zTx=0, zTy=0;
 const ZOOM_MIN=1, ZOOM_MAX=10;
 const PAN_MARGIN=120;
 let reclusterTimer=null;
-function scheduleRecluster(){ clearTimeout(reclusterTimer); reclusterTimer=setTimeout(()=>{ buildPins(visibleBooks()); applyYearOpacity(currentYear); }, 90); }
+
+// Whether any of a book's locations currently falls within the visible map
+// area — used to keep the chip-row/detail panel and the filter checkboxes in
+// sync with what's actually on screen, not just what's temporally relevant.
+function isBookInViewport(book){
+  const xMin=(0-zTx)/zScale, xMax=(VB_W-zTx)/zScale;
+  const yMin=(0-zTy)/zScale, yMax=(VB_H-zTy)/zScale;
+  return book.locations.some(loc=>{
+    const [x,y] = project(loc.lat, loc.lon);
+    return x>=xMin && x<=xMax && y>=yMin && y<=yMax;
+  });
+}
+
+function scheduleRecluster(){
+  clearTimeout(reclusterTimer);
+  reclusterTimer=setTimeout(()=>{
+    autoSyncFilterAvailability();
+    buildPins(visibleBooks());
+    applyYearOpacity(currentYear);
+    updateSelectionPanel();
+  }, 90);
+}
 
 function clampPan(){
   if(zScale<=1){ zTx=0; zTy=0; return; }
@@ -565,6 +588,7 @@ function initZoomPan(){
     const rect = svg.getBoundingClientRect();
     zTx += (e.clientX-lastX)*(VB_W/rect.width); zTy += (e.clientY-lastY)*(VB_H/rect.height);
     lastX=e.clientX; lastY=e.clientY; applyTransform();
+    scheduleRecluster();
   });
   window.addEventListener('mouseup', ()=>{ dragging=false; wrap.classList.remove('dragging'); });
 
@@ -581,6 +605,7 @@ function initZoomPan(){
       const t=e.touches[0];
       zTx += (t.clientX-lastTouchX)*(VB_W/rect.width); zTy += (t.clientY-lastTouchY)*(VB_H/rect.height);
       lastTouchX=t.clientX; lastTouchY=t.clientY; applyTransform();
+      scheduleRecluster();
     } else if(touchMode==='pinch' && e.touches.length===2){
       const dist = touchDist(e.touches);
       const mx=(e.touches[0].clientX+e.touches[1].clientX)/2, my=(e.touches[0].clientY+e.touches[1].clientY)/2;
@@ -693,8 +718,10 @@ function initFilterUI(){
   document.addEventListener('click', ()=>{ document.querySelectorAll('.dropdown-panel').forEach(p=>p.classList.remove('open')); });
   document.getElementById('showAllToggle').addEventListener('change', e=>{
     showAll = e.target.checked;
+    autoSyncFilterAvailability();
     buildPins(visibleBooks());
     applyYearOpacity(currentYear);
+    updateSelectionPanel();
   });
 }
 
@@ -950,11 +977,23 @@ function renderYear(y){
   applyYearOpacity(y);
   scheduleRecluster();
   document.getElementById('activeYearLabel').textContent = formatYear(y);
-  const matches = visibleBooks().filter(b => b.yearStart<=y && b.yearEnd>=y);
+  updateSelectionPanel();
+}
+
+// The chip-row / detail panel below the timeline — restricted to books that
+// are both temporally relevant AND currently visible on the map. Re-run
+// after panning or zooming settles (via scheduleRecluster), not just when
+// the year changes, so it never lists something that's actually off-screen.
+function updateSelectionPanel(){
+  const y = currentYear;
+  const matches = visibleBooks().filter(b => b.yearStart<=y && b.yearEnd>=y && isBookInViewport(b));
   const chipRow = document.getElementById('chipRow');
   chipRow.innerHTML='';
   document.querySelectorAll('.ruler-marker').forEach(m=>m.classList.toggle('selected', matches.some(b=>b.id===m.dataset.id)));
-  if(matches.length===0){ renderEmpty("No book recorded for "+y+". Try a marked year on the line above."); return; }
+  if(matches.length===0){
+    renderEmpty("No book recorded for "+formatYear(y)+" in the current map view. Pan/zoom out or try a marked year on the line above.");
+    return;
+  }
   if(matches.length===1){ renderDetail(matches[0]); }
   else {
     matches.forEach((b,i)=>{
@@ -973,6 +1012,36 @@ function renderYear(y){
   }
   highlightPin(matches[0].id);
 }
+
+// Auto-syncs the Series/Subgenre/Author checkboxes to whatever actually has
+// at least one book in the current map view + year window — so the filters
+// read as "what's here right now" rather than a static, manually-maintained
+// list. A checkbox you've manually unchecked stays that way until the next
+// time the view itself changes (pan, zoom, or timeline movement), at which
+// point everything re-syncs fresh to the new context.
+function autoSyncFilterAvailability(){
+  const y = currentYear;
+  function sync(panelId, countId, activeSet, getField){
+    const panel = document.getElementById(panelId);
+    if(!panel) return;
+    const rows = panel.querySelectorAll('.dropdown-row');
+    let checkedCount = 0;
+    rows.forEach(row=>{
+      const cb = row.querySelector('input[type=checkbox]');
+      const label = row.querySelector('span').textContent;
+      const hasMatch = BOOKS.some(b => getField(b)===label && (showAll || isYearRelevant(b,y)) && isBookInViewport(b));
+      cb.checked = hasMatch;
+      row.classList.toggle('unavailable', !hasMatch);
+      if(hasMatch){ activeSet.add(label); checkedCount++; } else { activeSet.delete(label); }
+    });
+    const countEl = document.getElementById(countId);
+    if(countEl) countEl.textContent = `(${checkedCount}/${rows.length})`;
+  }
+  sync('seriesPanel', 'seriesCount', activeSeries, b=>b.series);
+  sync('subgenrePanel', 'subgenreCount', activeSubgenres, b=>b.subgenre);
+  sync('authorPanel', 'authorCount', activeAuthors, b=>b.author);
+}
+
 
 /* ---------------- Load orchestration ---------------- */
 const DEFAULT_START_YEAR = 1800; // lands the initial view somewhere with real pin density, not just the sparse start of the range
@@ -1051,7 +1120,7 @@ async function initData(){
       if(books.length){
         const seriesCount = new Set(books.map(b=>b.series)).size;
         loadBooks(books, '');
-        document.getElementById('subtitleText').textContent = `${books.length} books, ${seriesCount} series \u2014 ${YEAR_MIN}\u2013${YEAR_MAX}`;
+        document.getElementById('subtitleText').textContent = `${books.length} books, ${seriesCount} series \u2014 ${formatYear(YEAR_MIN)}\u2013${formatYear(YEAR_MAX)}`;
         return;
       }
     } catch(err){ console.warn('Could not load the published data source, showing bundled demo data instead.', err); }
