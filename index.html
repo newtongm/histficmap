@@ -60,7 +60,7 @@
   .zoom-controls button{ width:30px; height:30px; font-family:inherit; font-size:16px; line-height:1; color:var(--ink-soft); background:transparent; border:none; border-bottom:1px solid var(--line); cursor:pointer; }
   .zoom-controls button:last-child{ border-bottom:none; }
   .zoom-controls button:hover{ background:var(--paper-dark); color:var(--ink); }
-  .zoom-controls button#zoomResetBtn{ font-size:11px; }
+  .zoom-controls button#zoomResetBtn{ width:auto; padding:0 8px; font-size:11px; white-space:nowrap; }
   .zoom-hint{ position:absolute; bottom:6px; left:32px; font-size:11.5px; font-style:italic; color:var(--ink-faint); pointer-events:none; }
 
   .pin{ cursor:pointer; }
@@ -161,6 +161,10 @@
         <button class="dropdown-toggle" id="subgenreDropdownBtn" type="button">Subgenre <span class="dd-count" id="subgenreCount"></span></button>
         <div class="dropdown-panel" id="subgenrePanel"></div>
       </div>
+      <div class="filter-dropdown" id="authorDropdown">
+        <button class="dropdown-toggle" id="authorDropdownBtn" type="button">Author <span class="dd-count" id="authorCount"></span></button>
+        <div class="dropdown-panel" id="authorPanel"></div>
+      </div>
       <label class="show-all-toggle">
         <input type="checkbox" id="showAllToggle">
         Show all (ignore timeline)
@@ -198,11 +202,11 @@
   <footer class="note">
     Covers shown here are placeholder dispatch cards, not real cover art. Landmasses are simplified,
     hand-drawn coastlines, not political borders, since national borders shift over time in ways that
-    would misrepresent historical settings. Pins fade in as the timeline nears a book's year and out
-    again as it passes &mdash; check "Show all" to see everything at once regardless of year. Nearby
-    pins merge into numbered clusters; click one to fan its members out around a central point (click
-    the center to collapse it again), each still fading on its own by year. Colors are generated per
-    subgenre and double as the Subgenre filter.
+    would misrepresent historical settings. Only books within about 10 years of the selected date are
+    shown on the map at all &mdash; check "Show all" to ignore the timeline and see everything at once.
+    Nearby pins merge into numbered clusters; click one to fan its members out around a central point
+    (click the center to collapse it again). Colors are generated per subgenre and double as the
+    Subgenre filter; Series and Author filters are also available above the map.
   </footer>
 
 </div>
@@ -267,6 +271,8 @@ let YEAR_MIN = 1799, YEAR_MAX = 1821;
 let currentYear = YEAR_MIN;
 let activeSeries = new Set();
 let activeSubgenres = new Set();
+let activeAuthors = new Set();
+let seriesCounts = {}; // series name -> book count, used to tell a real series from a standalone entry
 let showAll = false;
 
 // Years are stored as plain integers (negative = BC) so date math, sorting,
@@ -420,7 +426,7 @@ function renderBookGeo(book){
     const g = el('g',{class:'pin', 'data-id':book.id, transform:`translate(${x},${y})`});
     g.appendChild(el('circle',{class:'halo', r:scaledR(16), fill:colorFor(book)}));
     g.appendChild(el('circle',{class:'dot', r:scaledR(7), fill:colorFor(book), stroke:'var(--paper)', 'stroke-width':scaledR(1.5), style:dotVars(7)}));
-    g.addEventListener('click', ()=>selectBook(book.id, true));
+    g.addEventListener('click', ()=>selectBook(book.id, false));
     wrap.appendChild(g);
   } else {
     for(let i=0;i<pts.length-1;i++){
@@ -434,7 +440,7 @@ function renderBookGeo(book){
     const g = el('g',{class:'pin', 'data-id':book.id, transform:`translate(${cx},${cy})`});
     g.appendChild(el('circle',{class:'halo', r:scaledR(17), fill:colorFor(book)}));
     g.appendChild(el('circle',{class:'dot', r:scaledR(7.5), fill:colorFor(book), stroke:'var(--paper)', 'stroke-width':scaledR(1.7), style:dotVars(7.5)}));
-    g.addEventListener('click', ()=>selectBook(book.id, true));
+    g.addEventListener('click', ()=>selectBook(book.id, false));
     wrap.appendChild(g);
   }
   return wrap;
@@ -481,7 +487,7 @@ function renderClusterGroup(group){
       const pin = el('g',{class:'pin', 'data-id':book.id, transform:`translate(${mx},${my})`});
       pin.appendChild(el('circle',{class:'halo', r:scaledR(16), fill:colorFor(book)}));
       pin.appendChild(el('circle',{class:'dot', r:scaledR(7), fill:colorFor(book), stroke:'var(--paper)', 'stroke-width':scaledR(1.5), style:dotVars(7)}));
-      pin.addEventListener('click', ()=>selectBook(book.id, true));
+      pin.addEventListener('click', ()=>selectBook(book.id, false));
       g.appendChild(pin);
       wrap.appendChild(g);
     });
@@ -498,34 +504,23 @@ function renderClusterGroup(group){
 
 function buildPins(list){
   while(pinsLayer.firstChild) pinsLayer.removeChild(pinsLayer.firstChild);
+  // Books outside the current year's relevance window simply aren't rendered
+  // at all — no faint "ghost" layer. At small dataset sizes a lingering faded
+  // pin was a nice discovery aid; at hundreds of books spanning millennia it
+  // just meant misleading cluster counts and pins you could accidentally
+  // click that yanked the timeline centuries away. "Show all" is now the only
+  // way to see everything regardless of era.
+  const activeList = showAll ? list : list.filter(b=>isYearRelevant(b, currentYear));
   // Multi-location books never cluster, at any zoom — their whole point is the
   // trail between locations, and a cluster bubble can only show one dot, so
   // grouping them would silently erase the thing that makes them different.
-  const routeBooks = list.filter(b=>b.locations.length>1);
-  const singleBooks = list.filter(b=>b.locations.length===1);
+  const routeBooks = activeList.filter(b=>b.locations.length>1);
+  const singleBooks = activeList.filter(b=>b.locations.length===1);
   routeBooks.forEach(b=>pinsLayer.appendChild(renderBookGeo(b)));
-
-  function renderClusterSet(books){
-    clusterBooks(books, zScale).forEach(group=>{
-      if(group.length===1){ pinsLayer.appendChild(renderBookGeo(group[0].book)); }
-      else { pinsLayer.appendChild(renderClusterGroup(group)); }
-    });
-  }
-
-  if(showAll){
-    renderClusterSet(singleBooks);
-  } else {
-    // Two separate clustering passes: a book currently in the fade window
-    // clusters only with other currently-relevant books (so a cluster's count
-    // reflects what's actually highlighted right now), while temporally
-    // distant books cluster separately among themselves as a faint background
-    // layer — still visible and clickable (so you can spot and jump to a
-    // faded era), just never inflating a "now" cluster's number.
-    const relevant = singleBooks.filter(b=>isYearRelevant(b, currentYear));
-    const faded = singleBooks.filter(b=>!isYearRelevant(b, currentYear));
-    renderClusterSet(relevant);
-    renderClusterSet(faded);
-  }
+  clusterBooks(singleBooks, zScale).forEach(group=>{
+    if(group.length===1){ pinsLayer.appendChild(renderBookGeo(group[0].book)); }
+    else { pinsLayer.appendChild(renderClusterGroup(group)); }
+  });
 }
 
 /* ---------------- Zoom / pan ---------------- */
@@ -602,7 +597,24 @@ function initZoomPan(){
 }
 
 /* ---------------- Filters (also the color legend) ---------------- */
-function visibleBooks(){ return BOOKS.filter(b=> activeSeries.has(b.series) && activeSubgenres.has(b.subgenre)); }
+function visibleBooks(){
+  return BOOKS.filter(b=>{
+    const isPartOfRealSeries = (seriesCounts[b.series]||0) > 1;
+    const seriesOk = !isPartOfRealSeries || activeSeries.has(b.series);
+    return seriesOk && activeSubgenres.has(b.subgenre) && activeAuthors.has(b.author);
+  });
+}
+
+// Rough surname extraction for alphabetizing the author filter — takes the
+// last word of the name, after dropping a comma suffix like ", père". Good
+// enough for most Western names; family-name-first traditions (e.g. many
+// Chinese authors) will sort by given name instead, which is a known
+// limitation rather than something this heuristic can fully solve.
+function surnameOf(author){
+  const base = (author||'').split(',')[0].trim();
+  const parts = base.split(/\s+/).filter(Boolean);
+  return parts.length ? parts[parts.length-1] : base;
+}
 
 function buildDropdownPanel(panelId, options, activeSet, colorFn, onChange){
   const panel = document.getElementById(panelId);
@@ -631,10 +643,22 @@ function updateDropdownLabel(countId, activeSet, total){
 }
 
 function buildFilterControls(){
-  const allSeries = [...new Set(BOOKS.map(b=>b.series))].sort((a,b)=>a.localeCompare(b));
+  seriesCounts = {};
+  BOOKS.forEach(b=>{ seriesCounts[b.series] = (seriesCounts[b.series]||0)+1; });
+
+  // Only series with more than one book are meaningful to filter by — a
+  // standalone's "series" is just its own title, so listing it here would
+  // just be noise (and toggling it off would incorrectly hide that book).
+  const allSeries = [...new Set(BOOKS.map(b=>b.series))]
+    .filter(s=>seriesCounts[s]>1)
+    .sort((a,b)=>a.localeCompare(b));
   const allSubgenres = [...new Set(BOOKS.map(b=>b.subgenre))].sort((a,b)=>a.localeCompare(b));
+  const allAuthors = [...new Set(BOOKS.map(b=>b.author).filter(Boolean))]
+    .sort((a,b)=>surnameOf(a).localeCompare(surnameOf(b)));
+
   activeSeries = new Set(allSeries);
   activeSubgenres = new Set(allSubgenres);
+  activeAuthors = new Set(allAuthors);
 
   document.getElementById('seriesDropdown').style.display = allSeries.length<=1 ? 'none' : '';
   buildDropdownPanel('seriesPanel', allSeries, activeSeries, null, ()=>{
@@ -648,6 +672,13 @@ function buildFilterControls(){
     applyFilters();
   });
   updateDropdownLabel('subgenreCount', activeSubgenres, allSubgenres.length);
+
+  document.getElementById('authorDropdown').style.display = allAuthors.length<=1 ? 'none' : '';
+  buildDropdownPanel('authorPanel', allAuthors, activeAuthors, null, ()=>{
+    updateDropdownLabel('authorCount', activeAuthors, allAuthors.length);
+    applyFilters();
+  });
+  updateDropdownLabel('authorCount', activeAuthors, allAuthors.length);
 }
 
 function initFilterUI(){
@@ -657,6 +688,7 @@ function initFilterUI(){
   }
   document.getElementById('seriesDropdownBtn').addEventListener('click', e=>{ e.stopPropagation(); togglePanel('seriesPanel'); });
   document.getElementById('subgenreDropdownBtn').addEventListener('click', e=>{ e.stopPropagation(); togglePanel('subgenrePanel'); });
+  document.getElementById('authorDropdownBtn').addEventListener('click', e=>{ e.stopPropagation(); togglePanel('authorPanel'); });
   document.querySelectorAll('.dropdown-panel').forEach(p=>p.addEventListener('click', e=>e.stopPropagation()));
   document.addEventListener('click', ()=>{ document.querySelectorAll('.dropdown-panel').forEach(p=>p.classList.remove('open')); });
   document.getElementById('showAllToggle').addEventListener('change', e=>{
@@ -824,20 +856,22 @@ function initRulerInteraction(){
 }
 
 /* ---------------- Selection / detail rendering ---------------- */
-const FADE_WINDOW = 10; // years either side of a book's date range before it's fully invisible
-const FADE_FLOOR = 0.08; // faded pins stay faintly visible (and clickable) rather than truly invisible
+const FADE_WINDOW = 10; // years either side of a book's date range — outside this, it isn't rendered at all
+const FADE_FLOOR = 0.4; // dimmest opacity for anything still inside the window (everything shown is genuinely "in season" now)
 
+function yearDistance(b, y){
+  if(y>=b.yearStart && y<=b.yearEnd) return 0;
+  return Math.min(Math.abs(y-b.yearStart), Math.abs(y-b.yearEnd));
+}
 function yearOpacity(b, y){
-  let dist;
-  if(y>=b.yearStart && y<=b.yearEnd) dist = 0;
-  else dist = Math.min(Math.abs(y-b.yearStart), Math.abs(y-b.yearEnd));
-  if(dist>=FADE_WINDOW) return FADE_FLOOR;
+  const dist = yearDistance(b, y);
+  if(dist>=FADE_WINDOW) return 0;
   return FADE_FLOOR + (1-FADE_FLOOR) * (1 - dist/FADE_WINDOW);
 }
-// Whether a book is "in season" for clustering purposes — same boundary as
-// the opacity fade, so a cluster's displayed count matches what's actually
-// emphasized on screen, not just what's spatially nearby regardless of era.
-function isYearRelevant(b, y){ return yearOpacity(b, y) > FADE_FLOOR; }
+// Whether a book falls within the current year's relevance window at all —
+// this is the hard cutoff that decides what gets rendered on the map, not
+// just how dim it looks.
+function isYearRelevant(b, y){ return yearDistance(b, y) < FADE_WINDOW; }
 
 function applyYearOpacity(y){
   document.querySelectorAll('.book-geo').forEach(g=>{
