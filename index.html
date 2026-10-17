@@ -47,13 +47,44 @@
   .dropdown-actions{ display:flex; justify-content:space-between; font-size:11.5px; padding:2px 6px 8px; border-bottom:1px solid var(--line); margin-bottom:6px; }
   .dropdown-actions button{ background:none; border:none; color:var(--brass-deep); font-family:inherit; font-size:11.5px; cursor:pointer; padding:0; text-decoration:underline; }
   .dropdown-row{ display:flex; align-items:center; gap:8px; padding:5px 6px; border-radius:3px; font-size:13px; cursor:pointer; }
-  .dropdown-row.unavailable{ opacity:0.4; }
+  .dropdown-row.unavailable{ display:none; } /* options with no book in the current view/year are left out entirely, not greyed */
   .dropdown-row.unavailable span{ font-style:italic; }
   .dropdown-row:hover{ background:var(--paper-dark); }
   .dropdown-row input[type=checkbox]{ accent-color:var(--ink); }
   .dropdown-row i{ width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
   .show-all-toggle{ display:inline-flex; align-items:center; gap:7px; font-size:13px; color:var(--ink-soft); cursor:pointer; margin-left:auto; }
   .show-all-toggle input{ accent-color:var(--ink); }
+
+  /* ---------- Keyword search ---------- */
+  .search-box{ position:relative; flex:1 1 220px; max-width:340px; }
+  .search-box input{
+    width:100%; box-sizing:border-box; font-family:inherit; font-size:13px; color:var(--ink);
+    background:var(--paper) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b5d4d' stroke-width='2.5' stroke-linecap='round'><circle cx='10' cy='10' r='7'/><path d='M21 21l-5.5-5.5'/></svg>") no-repeat 11px 50%;
+    border:1px solid var(--line-strong); border-radius:4px; padding:7px 10px 7px 33px;
+  }
+  .search-box input:focus{ outline:2px solid var(--brass-deep); outline-offset:-1px; }
+  .search-results{
+    position:absolute; top:calc(100% + 6px); left:0; width:min(380px, calc(100vw - 28px)); max-height:380px; overflow-y:auto;
+    background:var(--paper); border:1px solid var(--line-strong); border-radius:4px;
+    box-shadow:0 8px 20px -6px rgba(42,33,24,0.35); z-index:30; display:none;
+  }
+  .search-results.open{ display:block; }
+  .search-item{ display:block; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--line); padding:8px 12px; cursor:pointer; font-family:inherit; color:var(--ink); }
+  .search-item:hover, .search-item.active{ background:var(--paper-dark); }
+  .search-item .si-title{ font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:7px; }
+  .search-item .si-title i{ width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
+  .search-item .si-meta{ font-size:11.5px; color:var(--ink-faint); margin-top:2px; padding-left:15px; }
+  .search-foot{ padding:7px 12px; font-size:11.5px; color:var(--ink-faint); font-style:italic; }
+  .search-only{ display:none; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); cursor:pointer; }
+  .search-only.show{ display:inline-flex; }
+  .search-only input{ accent-color:var(--ink); }
+  @media (max-width:640px){
+    /* collapses to a magnifier until tapped */
+    .search-box{ flex:0 0 44px; max-width:44px; }
+    .search-box:focus-within, .search-box.has-query{ flex:1 1 100%; max-width:none; }
+    .search-box:not(:focus-within):not(.has-query) input{ color:transparent; cursor:pointer; padding-right:0; }
+    .search-box:not(:focus-within):not(.has-query) input::placeholder{ color:transparent; }
+  }
 
   .chart-wrap{ position:relative; padding:18px 18px 8px; cursor:grab; }
   svg#chart{ width:100%; height:auto; display:block; touch-action:none; }
@@ -155,12 +186,19 @@
   <div class="stage">
 
     <div class="filter-bar" id="filterBar">
+      <div class="search-box" id="searchBox">
+        <input type="search" id="searchInput" placeholder="Search title, author, topic&hellip;" autocomplete="off" spellcheck="false" aria-label="Search books" title="Press / to search">
+        <div class="search-results" id="searchResults" role="listbox"></div>
+      </div>
+      <label class="search-only" id="searchOnlyLabel">
+        <input type="checkbox" id="searchOnlyToggle"> Show only matches on map
+      </label>
       <div class="filter-dropdown" id="seriesDropdown">
         <button class="dropdown-toggle" id="seriesDropdownBtn" type="button">Series <span class="dd-count" id="seriesCount"></span></button>
         <div class="dropdown-panel" id="seriesPanel"></div>
       </div>
       <div class="filter-dropdown" id="subgenreDropdown">
-        <button class="dropdown-toggle" id="subgenreDropdownBtn" type="button">Subgenre <span class="dd-count" id="subgenreCount"></span></button>
+        <button class="dropdown-toggle" id="subgenreDropdownBtn" type="button">Topic <span class="dd-count" id="subgenreCount"></span></button>
         <div class="dropdown-panel" id="subgenrePanel"></div>
       </div>
       <div class="filter-dropdown" id="authorDropdown">
@@ -207,8 +245,8 @@
     would misrepresent historical settings. Only books within about 10 years of the selected date are
     shown on the map at all &mdash; check "Show all" to ignore the timeline and see everything at once.
     Nearby pins merge into numbered clusters; click one to fan its members out around a central point
-    (click the center to collapse it again). Colors are generated per subgenre and double as the
-    Subgenre filter; Series and Author filters are also available above the map.
+    (click the center to collapse it again). Colors are generated per topic and double as the
+    Topic filter. The Series, Topic and Author filters only list what is on the map at the selected date and view.
   </footer>
 
 </div>
@@ -546,7 +584,7 @@ function isBookInViewport(book){
 function scheduleRecluster(){
   clearTimeout(reclusterTimer);
   reclusterTimer=setTimeout(()=>{
-    autoSyncFilterAvailability();
+    if(userFilterChange){ userFilterChange = false; } else { autoSyncFilterAvailability(); }
     buildPins(visibleBooks());
     applyYearOpacity(currentYear);
     updateSelectionPanel();
@@ -626,7 +664,8 @@ function visibleBooks(){
   return BOOKS.filter(b=>{
     const isPartOfRealSeries = (seriesCounts[b.series]||0) > 1;
     const seriesOk = !isPartOfRealSeries || activeSeries.has(b.series);
-    return seriesOk && activeSubgenres.has(b.subgenre) && activeAuthors.has(b.author);
+    return seriesOk && activeSubgenres.has(b.subgenre) && activeAuthors.has(b.author)
+      && (!searchMatchIds || searchMatchIds.has(b.id));
   });
 }
 
@@ -660,10 +699,19 @@ function buildDropdownPanel(panelId, options, activeSet, colorFn, onChange){
     panel.appendChild(row);
     boxes.push(cb);
   });
-  selAll.addEventListener('click', ()=>{ options.forEach(o=>activeSet.add(o)); boxes.forEach(cb=>cb.checked=true); onChange(); });
-  clearAll.addEventListener('click', ()=>{ activeSet.clear(); boxes.forEach(cb=>cb.checked=false); onChange(); });
+  selAll.addEventListener('click', ()=>{ boxes.forEach(cb=>{ if(cb.closest('.dropdown-row').classList.contains('unavailable')) return; cb.checked=true; activeSet.add(cb.closest('.dropdown-row').querySelector('span').textContent); }); onChange(); });
+  clearAll.addEventListener('click', ()=>{ boxes.forEach(cb=>{ if(cb.closest('.dropdown-row').classList.contains('unavailable')) return; cb.checked=false; activeSet.delete(cb.closest('.dropdown-row').querySelector('span').textContent); }); onChange(); });
 }
 function updateDropdownLabel(countId, activeSet, total){
+  // Count against the options that are actually listed (rows hidden because
+  // nothing matches the current view/year don't count toward the total).
+  const panel = document.getElementById(countId.replace('Count','Panel'));
+  if(panel){
+    const rows = [...panel.querySelectorAll('.dropdown-row')].filter(r=>!r.classList.contains('unavailable'));
+    const on = rows.filter(r=>r.querySelector('input').checked).length;
+    document.getElementById(countId).textContent = `(${on}/${rows.length})`;
+    return;
+  }
   document.getElementById(countId).textContent = `(${activeSet.size}/${total})`;
 }
 
@@ -725,7 +773,158 @@ function initFilterUI(){
   });
 }
 
+/* ---------------- Keyword search ----------------
+   Client-side over BOOKS. Matches title, author, series, topic, setting and synopsis
+   (every word must match somewhere; accents and case are ignored). Picking a result
+   jumps the timeline to the book's year, zooms the map to its setting and opens its
+   card. The optional "Show only matches on map" box turns the query into a filter. */
+let SEARCH_INDEX = [];
+let lastMatches = [];
+let searchOnly = false;
+let searchMatchIds = null; // Set of book ids when "only matches" is active, otherwise null
+const SEARCH_MAX_ROWS = 8;
+
+function normText(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+function buildSearchIndex(){
+  SEARCH_INDEX = BOOKS.map(b=>({
+    b, title:normText(b.title), author:normText(b.author), series:normText(b.series),
+    topic:normText(b.subgenre), loc:normText(b.locations.map(l=>l.label).join(' ')), syn:normText(b.synopsis)
+  }));
+}
+function runSearch(q){
+  const terms = normText(q).split(/\s+/).filter(Boolean);
+  if(!terms.length) return [];
+  const out = [];
+  SEARCH_INDEX.forEach(e=>{
+    let score = 0;
+    for(const t of terms){
+      let s;
+      if(e.title.includes(t)) s = e.title.startsWith(t) ? 100 : 80;
+      else if(e.author.includes(t)) s = 70;
+      else if(e.series.includes(t)) s = 60;
+      else if(e.topic.includes(t)) s = 40;
+      else if(e.loc.includes(t)) s = 30;
+      else if(e.syn.includes(t)) s = 15;
+      else return; // every word has to match something
+      score += s;
+    }
+    out.push({b:e.b, score});
+  });
+  out.sort((x,y)=> y.score-x.score
+    || (x.b.series===y.b.series ? x.b.seriesOrder-y.b.seriesOrder : x.b.yearStart-y.b.yearStart));
+  return out.map(o=>o.b);
+}
+
+function goToBook(b){
+  // Zoom the map to the book's setting (all of its stops, if it has several).
+  const pts = b.locations.map(l=>project(l.lat,l.lon));
+  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
+  const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
+  const cx=(x0+x1)/2, cy=(y0+y1)/2;
+  const fit = Math.min(VB_W/((x1-x0)*1.5+160), VB_H/((y1-y0)*1.5+80));
+  zScale = Math.max(1, Math.min(6, fit));
+  zTx = VB_W/2 - zScale*cx; zTy = VB_H/2 - zScale*cy;
+  applyTransform();
+  userFilterChange = false; // let the filters re-sync so this book's series/topic/author are ticked
+  scrollToYear(b.yearStart);
+  setTimeout(()=>{
+    renderDetail(b);
+    highlightPin(b.id);
+    document.querySelectorAll('#chipRow .chip').forEach(c=>c.classList.toggle('active', c.textContent===b.title));
+  }, 260);
+}
+
+function initSearch(){
+  const box = document.getElementById('searchBox');
+  const input = document.getElementById('searchInput');
+  const results = document.getElementById('searchResults');
+  const onlyLabel = document.getElementById('searchOnlyLabel');
+  const onlyToggle = document.getElementById('searchOnlyToggle');
+  let activeIdx = -1;
+
+  function applySearchFilter(){
+    const had = searchMatchIds !== null;
+    const q = input.value.trim();
+    searchMatchIds = (searchOnly && q) ? new Set(lastMatches.map(b=>b.id)) : null;
+    if(searchMatchIds || had) applyFilters();
+  }
+  function setActive(i){
+    const rows = results.querySelectorAll('.search-item');
+    if(!rows.length) return;
+    activeIdx = (i + rows.length) % rows.length;
+    rows.forEach((r,k)=>r.classList.toggle('active', k===activeIdx));
+    rows[activeIdx].scrollIntoView({block:'nearest'});
+  }
+  function pick(b){
+    results.classList.remove('open');
+    goToBook(b);
+  }
+  function render(){
+    const q = input.value.trim();
+    results.innerHTML = '';
+    activeIdx = -1;
+    box.classList.toggle('has-query', !!q);
+    onlyLabel.classList.toggle('show', !!q);
+    if(!q){ results.classList.remove('open'); return; }
+    lastMatches.slice(0, SEARCH_MAX_ROWS).forEach(b=>{
+      const row = document.createElement('button');
+      row.type = 'button'; row.className = 'search-item'; row.setAttribute('role','option');
+      const t = document.createElement('div'); t.className = 'si-title';
+      const dot = document.createElement('i'); dot.style.background = colorFor(b);
+      const name = document.createElement('span'); name.textContent = b.title;
+      t.appendChild(dot); t.appendChild(name);
+      const m = document.createElement('div'); m.className = 'si-meta';
+      const bits = [b.author];
+      if(b.series && b.series!==b.title) bits.push(b.series + (b.seriesOrder? ' #'+b.seriesOrder : ''));
+      bits.push(b.yearEnd!==b.yearStart ? `${formatYear(b.yearStart)}–${formatYear(b.yearEnd)}` : formatYear(b.yearStart));
+      m.textContent = bits.filter(Boolean).join(' · ');
+      row.appendChild(t); row.appendChild(m);
+      row.addEventListener('click', ()=>pick(b));
+      results.appendChild(row);
+    });
+    const foot = document.createElement('div'); foot.className = 'search-foot';
+    const n = lastMatches.length;
+    if(n===0) foot.textContent = 'No matches';
+    else if(n>SEARCH_MAX_ROWS) foot.textContent = `${n} matches — showing the top ${SEARCH_MAX_ROWS}. Tick “Show only matches on map” to see them all.`;
+    else foot.textContent = `${n} match${n===1?'':'es'}`;
+    results.appendChild(foot);
+    results.classList.add('open');
+  }
+  function update(){
+    lastMatches = runSearch(input.value);
+    render();
+    applySearchFilter();
+  }
+
+  input.addEventListener('input', update);
+  input.addEventListener('focus', ()=>{ if(input.value.trim()) results.classList.add('open'); });
+  input.addEventListener('keydown', e=>{
+    if(e.key==='ArrowDown'){ e.preventDefault(); results.classList.add('open'); setActive(activeIdx+1); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); setActive(activeIdx-1); }
+    else if(e.key==='Enter'){
+      e.preventDefault();
+      const b = lastMatches[activeIdx>=0 ? activeIdx : 0];
+      if(b) pick(b);
+    }
+    else if(e.key==='Escape'){
+      if(input.value){ input.value = ''; update(); } else { input.blur(); }
+    }
+  });
+  onlyToggle.addEventListener('change', ()=>{ searchOnly = onlyToggle.checked; applySearchFilter(); });
+  box.addEventListener('click', e=>e.stopPropagation());
+  document.addEventListener('click', ()=>results.classList.remove('open'));
+  document.addEventListener('keydown', e=>{
+    if(e.key==='/' && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)){
+      e.preventDefault(); input.focus(); input.select();
+    }
+  });
+  // called when a new dataset is loaded
+  window.resetSearch = function(){ input.value=''; lastMatches=[]; searchMatchIds=null; render(); };
+}
+
+let userFilterChange = false; // a manual checkbox change must not be immediately overwritten by the auto-sync
 function applyFilters(){
+  userFilterChange = true;
   buildPins(visibleBooks());
   buildTimelineMarkers(visibleBooks());
   renderYear(currentYear);
@@ -1034,8 +1233,7 @@ function autoSyncFilterAvailability(){
       row.classList.toggle('unavailable', !hasMatch);
       if(hasMatch){ activeSet.add(label); checkedCount++; } else { activeSet.delete(label); }
     });
-    const countEl = document.getElementById(countId);
-    if(countEl) countEl.textContent = `(${checkedCount}/${rows.length})`;
+    updateDropdownLabel(countId, activeSet, rows.length);
   }
   sync('seriesPanel', 'seriesCount', activeSeries, b=>b.series);
   sync('subgenrePanel', 'subgenreCount', activeSubgenres, b=>b.subgenre);
@@ -1050,6 +1248,8 @@ function loadBooks(newBooks, statusText){
   BOOKS = newBooks;
   [YEAR_MIN, YEAR_MAX] = computeYearRange(BOOKS);
   buildFilterControls();
+  buildSearchIndex();
+  if(window.resetSearch) window.resetSearch();
   buildTimelineAxis();
   buildPins(visibleBooks());
   buildTimelineMarkers(visibleBooks());
@@ -1099,7 +1299,7 @@ function parseCsvToBooks(csvText){
       id: (row.id||'').trim() || `${slugify(row.series)}-${seriesOrder}`,
       series: (row.series||'').trim(), seriesOrder,
       title: (row.title||'').trim(), author: (row.author||'').trim(),
-      subgenre: (row.subgenre||'').trim() || 'Historical Fiction',
+      subgenre: (row.topic||row.subgenre||'').trim() || 'Historical Fiction',
       yearStart: Number(row.year_start)||0,
       yearEnd: row.year_end!=='' && row.year_end!=null ? Number(row.year_end) : (Number(row.year_start)||0),
       published: row.published? Number(row.published) : null,
@@ -1133,6 +1333,7 @@ async function initData(){
 buildBaseMap();
 initZoomPan();
 initFilterUI();
+initSearch();
 initRulerInteraction();
 initData();
 </script>
