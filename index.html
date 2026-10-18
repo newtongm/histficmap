@@ -20,13 +20,15 @@
     font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,'Times New Roman',serif;
     -webkit-font-smoothing:antialiased;
   }
-  .app{ max-width:1180px; margin:0 auto; padding:36px 28px 60px; }
+  .app{ max-width:1180px; margin:0 auto; padding:20px 28px 40px; }
+  .sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .catalog-count{ margin:16px 0 0; font-style:italic; color:var(--ink-soft); font-size:14px; }
 
   header{ display:flex; justify-content:space-between; align-items:flex-end; gap:24px; padding-bottom:20px; border-bottom:1px solid var(--line-strong); flex-wrap:wrap; }
   .titleblock h1{ margin:0; font-size:38px; font-weight:600; letter-spacing:0.2px; }
   .titleblock p{ margin:6px 0 0; font-style:italic; color:var(--ink-soft); font-size:16px; }
 
-  .stage{ margin-top:0; border:1px solid var(--line-strong); border-top:none; background:var(--paper); display:grid; grid-template-columns:1fr; }
+  .stage{ margin-top:0; border:1px solid var(--line-strong); background:var(--paper); display:grid; grid-template-columns:1fr; }
 
   /* ---------- Filters (doubles as the color legend) ---------- */
   .filter-bar{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; padding:14px 20px; border-bottom:1px solid var(--line-strong); background:var(--paper-dark); position:relative; }
@@ -176,12 +178,7 @@
 <body>
 <div class="app">
 
-  <header>
-    <div class="titleblock">
-      <h1>Historical Fiction Atlas</h1>
-      <p id="subtitleText">Loading&hellip;</p>
-    </div>
-  </header>
+  <h1 class="sr-only">Historical Fiction Atlas</h1>
 
   <div class="stage">
 
@@ -253,6 +250,8 @@
     Genre filter. The Series, Genre, Topic and Author filters only list what is on the map at the selected date and view.
   </footer>
 
+  <p class="catalog-count" id="subtitleText">Loading&hellip;</p>
+
 </div>
 
 <script>
@@ -320,6 +319,7 @@ let currentYear = YEAR_MIN;
 let activeSeries = new Set();
 let activeSubgenres = new Set();
 let activeGenres = new Set();
+let selectedBookId = null; // the book whose card is showing; keeps its chip highlighted
 let activeAuthors = new Set();
 let seriesCounts = {}; // series name -> book count, used to tell a real series from a standalone entry
 let showAll = false;
@@ -327,6 +327,13 @@ let showAll = false;
 // Years are stored as plain integers (negative = BCE) so date math, sorting,
 // and range comparisons all work correctly without special-casing. This is
 // purely a display-time formatter — never used for calculation.
+// A title that isn't part of a real series (series name is blank, repeats the
+// title, or only one book carries it) shouldn't show a series number.
+function isStandalone(b){
+  if(!b.series) return true;
+  const base = s=>String(s).replace(/\s*\([^)]*\)\s*$/,'').trim().toLowerCase();
+  return base(b.series)===base(b.title) || (seriesCounts[b.series]||0)<=1;
+}
 function formatYear(y){ return y<0 ? `${Math.abs(y)} BCE` : `${y}`; }
 
 /* ---------------- Map projection (whole world) ---------------- */
@@ -811,6 +818,7 @@ function goToBook(b){
   zTx = VB_W/2 - zScale*cx; zTy = VB_H/2 - zScale*cy;
   applyTransform();
   userFilterChange = false; // let the filters re-sync so this book's series/topic/author are ticked
+  selectedBookId = b.id;
   scrollToYear(b.yearStart);
   setTimeout(()=>{
     renderDetail(b);
@@ -1119,12 +1127,12 @@ function renderDetail(b){
         <div class="cover" style="background:linear-gradient(160deg, ${hex} 0%, ${shade(hex,-18)} 100%);">
           <div class="wordmark">${(b.series||'').toUpperCase()}</div>
           <div class="campaign">${b.synopsis}</div>
-          <div class="num">${b.seriesOrder||''}</div>
+          <div class="num">${isStandalone(b) ? '' : (b.seriesOrder||'')}</div>
         </div>
         <div class="cover-caption">placeholder cover</div>
       </div>
       <div class="dispatch-body">
-        <div class="kicker">${b.series||''}${b.seriesOrder? ' No. '+b.seriesOrder:''} &middot; ${[b.genre,b.subgenre].filter(Boolean).join(' &middot; ')}</div>
+        <div class="kicker">${[ isStandalone(b) ? '' : (b.series + (b.seriesOrder? ' No. '+b.seriesOrder : '')), b.genre, b.subgenre ].filter(Boolean).join(' &middot; ')}</div>
         <h2>${b.title}</h2>
         <div class="byline">${b.author||''}<span class="dot">&middot;</span>${yearSpan}</div>
         <p class="synopsis">${b.synopsis}.</p>
@@ -1149,8 +1157,10 @@ function shade(hex, pct){
 function selectBook(id, alsoSyncTimeline){
   const b = BOOKS.find(x=>x.id===id);
   if(!b) return;
+  selectedBookId = id;
   highlightPin(id);
   renderDetail(b);
+  document.querySelectorAll('#chipRow .chip').forEach(c=>c.classList.toggle('active', c.dataset.id===id));
   if(alsoSyncTimeline){
     scrollToYear(b.yearStart);
   }
@@ -1178,23 +1188,25 @@ function updateSelectionPanel(){
     renderEmpty("No book recorded for "+formatYear(y)+" in the current map view. Pan/zoom out or try a marked year on the line above.");
     return;
   }
-  if(matches.length===1){ renderDetail(matches[0]); }
-  else {
-    matches.forEach((b,i)=>{
+  const sel = matches.find(b=>b.id===selectedBookId) || matches[0];
+  selectedBookId = sel.id;
+  if(matches.length>1){
+    matches.forEach(b=>{
       const c=document.createElement('button');
-      c.className='chip'+(i===0?' active':'');
+      c.className='chip'+(b.id===sel.id?' active':'');
+      c.dataset.id=b.id;
       c.textContent=b.title;
       c.addEventListener('click', ()=>{
-        chipRow.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
-        c.classList.add('active');
+        selectedBookId = b.id;
+        chipRow.querySelectorAll('.chip').forEach(x=>x.classList.toggle('active', x===c));
         renderDetail(b);
         highlightPin(b.id);
       });
       chipRow.appendChild(c);
     });
-    renderDetail(matches[0]);
   }
-  highlightPin(matches[0].id);
+  renderDetail(sel);
+  highlightPin(sel.id);
 }
 
 // Auto-syncs the Series/Subgenre/Author checkboxes to whatever actually has
@@ -1307,7 +1319,7 @@ async function initData(){
       if(books.length){
         const seriesCount = new Set(books.map(b=>b.series)).size;
         loadBooks(books, '');
-        document.getElementById('subtitleText').textContent = `${books.length} books, ${seriesCount} series \u2014 ${formatYear(YEAR_MIN)}\u2013${formatYear(YEAR_MAX)}`;
+        document.getElementById('subtitleText').textContent = `${books.length} Titles, ${seriesCount} series \u2014 ${formatYear(YEAR_MIN)}\u2013${formatYear(YEAR_MAX)}`;
         return;
       }
     } catch(err){ console.warn('Could not load the published data source, showing bundled demo data instead.', err); }
