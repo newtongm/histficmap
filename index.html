@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Historical Fiction Atlas v2.1 (public site) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -20,8 +21,9 @@
     font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,'Times New Roman',serif;
     -webkit-font-smoothing:antialiased;
   }
-  .app{ max-width:1180px; margin:0 auto; padding:20px 28px 40px; }
+  .app{ max-width:1600px; margin:0 auto; padding:20px 28px 40px; }
   .sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .catalog-count .version{ font-style:normal; opacity:0.7; margin-left:6px; font-size:12px; }
   .catalog-count{ margin:16px 0 0; font-style:italic; color:var(--ink-soft); font-size:14px; }
 
   header{ display:flex; justify-content:space-between; align-items:flex-end; gap:24px; padding-bottom:20px; border-bottom:1px solid var(--line-strong); flex-wrap:wrap; }
@@ -137,7 +139,7 @@
   .ruler-needle::before{ content:''; position:absolute; top:0; bottom:0; left:0; width:2px; background:var(--ink); transform:translateX(-1px); }
   .ruler-needle::after{ content:''; position:absolute; top:-1px; left:0; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:7px solid var(--ink); transform:translateX(-6px); }
 
-  .active-year{ text-align:center; font-size:26px; font-weight:600; color:var(--ink); margin:10px 0 22px; letter-spacing:0.3px; }
+  .active-year{ text-align:center; font-size:26px; font-weight:600; color:var(--ink); margin:10px 0 12px; letter-spacing:0.3px; }
 
   .chip-row{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:22px; min-height:30px; }
   .chip{ font-family:inherit; font-size:13px; border:1px solid var(--line-strong); background:var(--paper-dark); color:var(--ink-soft); padding:5px 12px; border-radius:14px; cursor:pointer; }
@@ -164,6 +166,86 @@
 
   footer.note{ margin-top:22px; font-size:12.5px; color:var(--ink-faint); font-style:italic; line-height:1.5; max-width:74ch; }
   footer.note code{ font-family:inherit; font-style:normal; background:var(--paper-dark); padding:1px 5px; border-radius:3px; }
+
+    /* ---------- Jump to year ---------- */
+  .jump-form{ display:flex; justify-content:center; align-items:center; gap:10px; flex-wrap:wrap; margin:-2px 0 22px; font-size:13px; color:var(--ink-soft); }
+  .jump-form input[type=text]{ width:86px; font:inherit; font-size:14px; padding:6px 8px; border:1px solid var(--line-strong); border-radius:4px; background:var(--paper); color:var(--ink); text-align:center; }
+  .jump-form input[type=text]:focus{ outline:2px solid var(--brass-deep); outline-offset:-1px; }
+  .jump-form .era{ display:inline-flex; align-items:center; gap:4px; cursor:pointer; }
+  .jump-form .era input{ accent-color:var(--ink); }
+  .jump-form button{ font:inherit; font-size:13px; color:var(--ink); background:var(--paper); border:1px solid var(--line-strong); padding:6px 14px; border-radius:4px; cursor:pointer; }
+  .jump-form button:hover{ background:var(--brass); color:var(--paper); border-color:var(--brass); }
+  .jump-msg{ flex-basis:100%; text-align:center; font-style:italic; color:var(--brass-deep); min-height:1em; font-size:12.5px; }
+
+  /* ---------- Series box in the detail card ---------- */
+  .series-box{ margin:0 0 18px; padding:12px 14px; border:1px solid var(--line-strong); border-radius:4px; background:var(--paper-dark); max-width:62ch; }
+  .series-head{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; font-size:13px; color:var(--ink-soft); margin-bottom:8px; }
+  .series-head b{ color:var(--ink); }
+  .series-focus{ font:inherit; font-size:12px; color:var(--brass-deep); background:none; border:none; padding:0; text-decoration:underline; cursor:pointer; }
+  .series-list{ list-style:none; margin:0; padding:0; max-height:196px; overflow-y:auto; }
+  .series-item{ display:flex; align-items:baseline; gap:10px; width:100%; text-align:left; font:inherit; font-size:13.5px; color:var(--ink); background:none; border:none; border-radius:3px; padding:4px 6px; cursor:pointer; }
+  .series-item:hover{ background:var(--paper-deep); }
+  .series-item.current{ background:var(--ink); color:var(--paper); cursor:default; }
+  .series-item .si-n{ flex:none; width:2.2em; text-align:right; opacity:0.65; font-variant-numeric:tabular-nums; }
+  .series-item .si-t{ flex:1; }
+  .series-item .si-y{ flex:none; font-size:12px; opacity:0.65; font-style:italic; }
+  .focus-pill{ display:inline-flex; align-items:center; gap:8px; font-size:12.5px; color:var(--paper); background:var(--ink); padding:5px 8px 5px 12px; border-radius:14px; }
+  .focus-pill[hidden]{ display:none; }
+  .focus-pill button{ font:inherit; color:var(--paper); background:none; border:none; cursor:pointer; padding:0 2px; font-size:15px; line-height:1; }
+
+  /* ---------- Page foot + suggest an edit ---------- */
+  .page-foot{ display:flex; align-items:flex-end; justify-content:space-between; gap:28px; flex-wrap:wrap; margin-top:22px; }
+  .page-foot footer.note{ margin-top:0; }
+  .suggest-btn{ font-family:inherit; font-size:14px; color:var(--paper); background:var(--ink); border:1px solid var(--ink); padding:10px 18px; border-radius:4px; cursor:pointer; flex:none; }
+  .suggest-btn:hover{ background:var(--brass-deep); border-color:var(--brass-deep); }
+  dialog.suggest{ width:min(760px, 94vw); max-height:90vh; padding:0; border:1px solid var(--line-strong); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; box-shadow:0 24px 60px -12px rgba(42,33,24,0.55); }
+  dialog.suggest::backdrop{ background:rgba(42,33,24,0.55); }
+  .suggest-inner{ padding:24px 28px 26px; max-height:90vh; overflow-y:auto; }
+  .suggest-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:6px; }
+  .suggest-top h2{ margin:0; font-size:24px; font-weight:600; }
+  .suggest-close{ font:inherit; font-size:24px; line-height:1; color:var(--ink-soft); background:none; border:none; cursor:pointer; padding:0 4px; }
+  .suggest-intro{ margin:0 0 16px; font-size:14px; color:var(--ink-soft); line-height:1.5; }
+  .suggest-modes{ display:flex; gap:20px; flex-wrap:wrap; margin-bottom:16px; font-size:14px; }
+  .suggest-modes label{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
+  .suggest-modes input{ accent-color:var(--ink); }
+  .suggest-entry{ border:1px solid var(--line-strong); border-radius:4px; padding:14px 16px 16px; margin-bottom:12px; background:var(--paper-dark); }
+  .entry-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; font-weight:600; color:var(--ink-soft); letter-spacing:0.3px; }
+  .entry-remove{ font:inherit; font-size:12px; font-weight:400; color:var(--brass-deep); background:none; border:none; text-decoration:underline; cursor:pointer; padding:0; }
+  .suggest-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .suggest-field{ display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--ink-soft); margin-bottom:10px; }
+  .suggest-field.wide{ grid-column:1 / -1; }
+  .suggest-field input, .suggest-field textarea{ font:inherit; font-size:14.5px; color:var(--ink); background:var(--paper); border:1px solid var(--line-strong); border-radius:4px; padding:8px 10px; }
+  .suggest-field textarea{ min-height:84px; resize:vertical; }
+  .suggest-field input:focus, .suggest-field textarea:focus{ outline:2px solid var(--brass-deep); outline-offset:-1px; }
+  .suggest-field .help{ font-size:12px; color:var(--ink-faint); font-style:italic; }
+  .suggest-add{ font:inherit; font-size:13.5px; color:var(--ink); background:var(--paper); border:1px dashed var(--ink-faint); border-radius:4px; padding:8px 14px; cursor:pointer; margin-bottom:18px; }
+  .suggest-add:hover{ background:var(--paper-dark); }
+  .suggest-contact{ border-top:1px solid var(--line-strong); padding-top:16px; margin-top:4px; }
+  .suggest-contact h3{ margin:0 0 4px; font-size:15px; font-weight:600; }
+  .suggest-consent{ display:flex; gap:9px; align-items:flex-start; font-size:13px; color:var(--ink-soft); line-height:1.45; margin:4px 0 10px; cursor:pointer; }
+  .suggest-consent input{ margin-top:3px; accent-color:var(--ink); }
+  .suggest-privacy{ font-size:12.5px; color:var(--ink-faint); line-height:1.5; margin:0 0 14px; }
+  .suggest-privacy details{ margin-top:6px; }
+  .suggest-privacy summary{ cursor:pointer; color:var(--brass-deep); text-decoration:underline; }
+  .suggest-privacy .policy{ margin-top:8px; padding:10px 12px; background:var(--paper-dark); border-radius:4px; color:var(--ink-soft); }
+  .suggest-privacy .policy p{ margin:0 0 8px; } .suggest-privacy .policy p:last-child{ margin:0; }
+  .suggest-actions{ display:flex; justify-content:flex-end; align-items:center; gap:12px; flex-wrap:wrap; }
+  .suggest-error{ color:#9a2f22; font-size:13px; margin-right:auto; }
+  .suggest-submit{ font-family:inherit; font-size:14.5px; color:var(--paper); background:var(--ink); border:1px solid var(--ink); padding:10px 22px; border-radius:4px; cursor:pointer; }
+  .suggest-submit:hover:not(:disabled){ background:var(--brass-deep); border-color:var(--brass-deep); }
+  .suggest-submit:disabled{ opacity:0.6; cursor:default; }
+  .suggest-secondary{ font-family:inherit; font-size:14px; color:var(--ink); background:var(--paper); border:1px solid var(--line-strong); padding:9px 18px; border-radius:4px; cursor:pointer; }
+  .suggest-thanks{ text-align:center; padding:26px 6px 10px; }
+  .suggest-thanks h3{ margin:0 0 8px; font-size:20px; }
+  .suggest-thanks p{ margin:0 0 10px; color:var(--ink-soft); line-height:1.5; }
+  .suggest-thanks .testmode{ font-style:italic; color:var(--brass-deep); font-size:13px; }
+  .hp-field{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+  @media (max-width:640px){
+    .suggest-grid{ grid-template-columns:1fr; }
+    .suggest-inner{ padding:18px 16px 20px; }
+    .page-foot{ flex-direction:column; align-items:stretch; }
+    .suggest-btn{ width:100%; }
+  }
 
   @media (max-width:640px){
     .dispatch{ grid-template-columns:96px 1fr; }
@@ -206,6 +288,7 @@
         <button class="dropdown-toggle" id="authorDropdownBtn" type="button">Author <span class="dd-count" id="authorCount"></span></button>
         <div class="dropdown-panel" id="authorPanel"></div>
       </div>
+      <span class="focus-pill" id="focusPill" hidden>Series: <b id="focusPillName"></b> <button type="button" id="focusPillClear" aria-label="Show all titles again" title="Show all titles again">&times;</button></span>
       <label class="show-all-toggle">
         <input type="checkbox" id="showAllToggle">
         Show all (ignore timeline)
@@ -231,6 +314,14 @@
         <div class="ruler-needle" aria-hidden="true"></div>
       </div>
       <div class="active-year" id="activeYearLabel"></div>
+      <form class="jump-form" id="jumpForm" autocomplete="off">
+        <label for="jumpYear">Jump to year</label>
+        <input type="text" id="jumpYear" inputmode="numeric" placeholder="e.g. 1066" maxlength="9" aria-label="Year to jump to">
+        <label class="era"><input type="radio" name="era" value="CE" checked> CE</label>
+        <label class="era"><input type="radio" name="era" value="BCE"> BCE</label>
+        <button type="submit">Go</button>
+        <div class="jump-msg" id="jumpMsg" role="status"></div>
+      </form>
       <div class="chip-row" id="chipRow"></div>
     </div>
 
@@ -240,19 +331,83 @@
 
   </div>
 
+  <div class="page-foot">
+  <div class="page-foot-text">
   <footer class="note">
-    Covers shown here are placeholder dispatch cards, not real cover art. Landmasses are simplified,
-    hand-drawn coastlines, not political borders, since national borders shift over time in ways that
+    Covers shown here are placeholder dispatch cards, not real cover art. Coastlines are simplified
+    (Natural Earth, public domain) and are not political borders, since national borders shift over time in ways that
     would misrepresent historical settings. Only books within about 10 years of the selected date are
     shown on the map at all &mdash; check "Show all" to ignore the timeline and see everything at once.
     Nearby pins merge into numbered clusters; click one to fan its members out around a central point
-    (click the center to collapse it again). Pin colors show a book's genre and double as the
+    (click the center to collapse it again). A dashed trail means the story moves between places; its pin marks where it starts. Pin colors show a book's genre and double as the
     Genre filter. The Series, Genre, Topic and Author filters only list what is on the map at the selected date and view.
   </footer>
 
-  <p class="catalog-count" id="subtitleText">Loading&hellip;</p>
+  <p class="catalog-count"><span id="subtitleText">Loading&hellip;</span><span class="version">v2.1</span></p>
+  </div>
+  <button type="button" class="suggest-btn" id="suggestBtn">Suggest an edit</button>
+  </div>
 
 </div>
+
+<dialog class="suggest" id="suggestDialog" aria-labelledby="suggestTitle">
+  <div class="suggest-inner">
+    <div class="suggest-top">
+      <h2 id="suggestTitle">Suggest an edit</h2>
+      <button type="button" class="suggest-close" id="suggestClose" aria-label="Close">&times;</button>
+    </div>
+    <form id="suggestForm">
+      <p class="suggest-intro">Know a book that belongs on the map, or spot something that needs fixing? Tell us here. Every suggestion is reviewed before anything changes.</p>
+      <div class="suggest-modes" role="radiogroup" aria-label="Type of suggestion">
+        <label><input type="radio" name="mode" value="new" checked> Suggest a new title</label>
+        <label><input type="radio" name="mode" value="edit"> Edit an existing title</label>
+      </div>
+      <div id="suggestEntries"></div>
+      <button type="button" class="suggest-add" id="suggestAdd">+ Add another title</button>
+      <div class="suggest-contact">
+        <h3>Want to hear back? <span style="font-weight:400;color:var(--ink-faint)">(optional)</span></h3>
+        <div class="suggest-grid">
+          <label class="suggest-field">Your name
+            <input type="text" name="name" maxlength="120" autocomplete="name">
+          </label>
+          <label class="suggest-field">Your email
+            <input type="email" name="email" maxlength="200" autocomplete="email">
+          </label>
+        </div>
+        <label class="suggest-consent">
+          <input type="checkbox" name="consent">
+          <span>Yes, please let me know if my suggestion is added to the map, and send me occasional relevant news about the atlas. I can unsubscribe at any time. (Needs your email.)</span>
+        </label>
+        <div class="suggest-privacy">
+          Your name and email are optional, and you can submit without them. We will never sell your personal information.
+          <details>
+            <summary>Privacy policy</summary>
+            <div class="policy">
+              <p><b>What we collect.</b> Only what you type into this form: the titles and details you suggest and, if you choose to give them, your name and email address.</p>
+              <p><b>How we use it.</b> We use your suggestions to improve the atlas. We use your name and email only to follow up about your suggestion and, if you ticked the box above, to send occasional relevant updates about the atlas. You can unsubscribe at any time.</p>
+              <p><b>What we never do.</b> We will not sell, rent or trade your personal information, and we will not share it with anyone else, other than the service that delivers this form to our inbox. If a suggestion is added to the public map, your name and email are never published with it.</p>
+              <p><b>Your choices.</b> You can ask us to delete your details at any time by sending a message through this form.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+      <div class="hp-field" aria-hidden="true"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      <div class="suggest-actions">
+        <span class="suggest-error" id="suggestError" role="alert"></span>
+        <button type="button" class="suggest-secondary" id="suggestCancel">Cancel</button>
+        <button type="submit" class="suggest-submit" id="suggestSubmit">Send suggestion</button>
+      </div>
+    </form>
+    <div class="suggest-thanks" id="suggestThanks" hidden>
+      <h3>Thank you!</h3>
+      <p>Your suggestion has been received. We'll review it, and if you left an email we'll let you know what happens.</p>
+      <p class="testmode" id="suggestTestMode" hidden>Test mode: the form isn't connected to an inbox yet, so nothing was actually sent.</p>
+      <button type="button" class="suggest-secondary" id="suggestAgain">Suggest another</button>
+      <button type="button" class="suggest-submit" id="suggestDone">Close</button>
+    </div>
+  </div>
+</dialog>
+<datalist id="titleList"></datalist>
 
 <script>
 /* ==========================================================================
@@ -319,6 +474,8 @@ let currentYear = YEAR_MIN;
 let activeSeries = new Set();
 let activeSubgenres = new Set();
 let activeGenres = new Set();
+let SERIES_MAP = {}; // series name -> its books, ordered by series number
+let focusSeries = null; // series name when 'show only this series' is on
 let selectedBookId = null; // the book whose card is showing; keeps its chip highlighted
 let activeAuthors = new Set();
 let seriesCounts = {}; // series name -> book count, used to tell a real series from a standalone entry
@@ -454,12 +611,14 @@ function renderBookGeo(book){
   } else {
     for(let i=0;i<pts.length-1;i++){
       const [ax,ay]=pts[i], [bx,by]=pts[i+1];
-      wrap.appendChild(el('line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--ink-soft)','stroke-width':scaledR(1.2),'stroke-dasharray':`${scaledR(2).toFixed(2)},${scaledR(4).toFixed(2)}`,opacity:0.65}));
+      wrap.appendChild(el('line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--ink-soft)','stroke-width':scaledR(1.7),'stroke-dasharray':`${scaledR(2.4).toFixed(2)},${scaledR(4).toFixed(2)}`,opacity:0.85}));
     }
-    pts.forEach(([px,py])=>{
-      wrap.appendChild(el('circle',{cx:px,cy:py,r:scaledR(3.2),fill:colorFor(book),stroke:'var(--paper)','stroke-width':scaledR(1),opacity:0.9}));
+    // Small dots mark the later stops; the pin sits on the FIRST stop (where the
+    // story starts) so the dashed trail visibly leaves from it.
+    pts.slice(1).forEach(([px,py])=>{
+      wrap.appendChild(el('circle',{cx:px,cy:py,r:scaledR(4.2),fill:colorFor(book),stroke:'var(--paper)','stroke-width':scaledR(1),opacity:0.9}));
     });
-    const cx = pts.reduce((s,p)=>s+p[0],0)/pts.length, cy = pts.reduce((s,p)=>s+p[1],0)/pts.length;
+    const [cx,cy] = pts[0];
     const g = el('g',{class:'pin', 'data-id':book.id, transform:`translate(${cx},${cy})`});
     g.appendChild(el('circle',{class:'halo', r:scaledR(17), fill:colorFor(book)}));
     g.appendChild(el('circle',{class:'dot', r:scaledR(7.5), fill:colorFor(book), stroke:'var(--paper)', 'stroke-width':scaledR(1.7), style:dotVars(7.5)}));
@@ -533,7 +692,7 @@ function buildPins(list){
   // just meant misleading cluster counts and pins you could accidentally
   // click that yanked the timeline centuries away. "Show all" is now the only
   // way to see everything regardless of era.
-  const activeList = showAll ? list : list.filter(b=>isYearRelevant(b, currentYear));
+  const activeList = (showAll || focusSeries) ? list : list.filter(b=>isYearRelevant(b, currentYear));
   // Multi-location books never cluster, at any zoom — their whole point is the
   // trail between locations, and a cluster bubble can only show one dot, so
   // grouping them would silently erase the thing that makes them different.
@@ -648,7 +807,8 @@ function visibleBooks(){
     const isPartOfRealSeries = (seriesCounts[b.series]||0) > 1;
     const seriesOk = !isPartOfRealSeries || activeSeries.has(b.series);
     return seriesOk && activeGenres.has(b.genre) && activeSubgenres.has(b.subgenre) && activeAuthors.has(b.author)
-      && (!searchMatchIds || searchMatchIds.has(b.id));
+      && (!searchMatchIds || searchMatchIds.has(b.id))
+      && (!focusSeries || b.series===focusSeries);
   });
 }
 
@@ -701,6 +861,10 @@ function updateDropdownLabel(countId, activeSet, total){
 function buildFilterControls(){
   seriesCounts = {};
   BOOKS.forEach(b=>{ seriesCounts[b.series] = (seriesCounts[b.series]||0)+1; });
+  SERIES_MAP = {};
+  BOOKS.forEach(b=>{ (SERIES_MAP[b.series] = SERIES_MAP[b.series] || []).push(b); });
+  Object.values(SERIES_MAP).forEach(l=>l.sort((x,y)=>(x.seriesOrder-y.seriesOrder)||(x.yearStart-y.yearStart)));
+  focusSeries = null; updateFocusPill();
 
   // Only series with more than one book are meaningful to filter by — a
   // standalone's "series" is just its own title, so listing it here would
@@ -770,6 +934,232 @@ function initFilterUI(){
    (every word must match somewhere; accents and case are ignored). Picking a result
    jumps the timeline to the book's year, zooms the map to its setting and opens its
    card. The optional "Show only matches on map" box turns the query into a filter. */
+/* ---------------- Small helpers ---------------- */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------------- Jump to year ---------------- */
+function initJump(){
+  const form = document.getElementById('jumpForm');
+  const input = document.getElementById('jumpYear');
+  const msg = document.getElementById('jumpMsg');
+  form.addEventListener('submit', e=>{
+    e.preventDefault();
+    // Accepts "1066", "50 BCE", "50 bc", "-50" — a typed suffix or minus sign wins over the radio buttons.
+    const m = input.value.trim().match(/^(-)?\s*(\d{1,4})\s*(bce|bc|ce|ad)?$/i);
+    if(!m){ msg.textContent = 'Enter a year, for example 1066 or 50 with BCE selected.'; return; }
+    const n = parseInt(m[2],10);
+    if(n===0){ msg.textContent = 'There is no year 0. Try 1 CE or 1 BCE.'; return; }
+    const bce = m[1] ? true : (m[3] ? /^bc/i.test(m[3]) : form.era.value==='BCE');
+    form.querySelector(`input[name="era"][value="${bce?'BCE':'CE'}"]`).checked = true;
+    const wanted = bce ? -n : n;
+    const y = Math.max(YEAR_MIN, Math.min(YEAR_MAX, wanted));
+    msg.textContent = y!==wanted ? `The timeline runs from ${formatYear(YEAR_MIN)} to ${formatYear(YEAR_MAX)}, so this jumped to ${formatYear(y)}.` : '';
+    jumpToYear(y);
+  });
+  input.addEventListener('input', ()=>{ msg.textContent=''; });
+}
+
+/* ---------------- Series box (detail card) ---------------- */
+function seriesBoxHtml(b){
+  if(isStandalone(b)) return '';
+  const list = SERIES_MAP[b.series] || [];
+  if(list.length<2) return '';
+  const items = list.map(x=>{
+    const yrs = x.yearEnd!==x.yearStart ? `${formatYear(x.yearStart)}–${formatYear(x.yearEnd)}` : formatYear(x.yearStart);
+    return `<li><button type="button" class="series-item${x.id===b.id?' current':''}" data-id="${esc(x.id)}"${x.id===b.id?' aria-current="true"':''}>
+      <span class="si-n">${x.seriesOrder||''}</span><span class="si-t">${esc(x.title)}</span><span class="si-y">${yrs}</span></button></li>`;
+  }).join('');
+  const focused = focusSeries===b.series;
+  return `<div class="series-box">
+    <div class="series-head"><span>More in <b>${esc(b.series)}</b> &middot; ${list.length} titles</span>
+      <button type="button" class="series-focus" data-series="${esc(b.series)}">${focused ? 'Show all titles again' : 'Show only this series on the map'}</button></div>
+    <ol class="series-list">${items}</ol>
+  </div>`;
+}
+function wireSeriesBox(b){
+  const box = document.querySelector('#detailPanel .series-box');
+  if(!box) return;
+  box.querySelectorAll('.series-item').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(btn.dataset.id===b.id) return;
+      const target = BOOKS.find(x=>x.id===btn.dataset.id);
+      if(target) goToBook(target, {zoom:'ifNeeded'});
+    });
+  });
+  box.querySelector('.series-focus').addEventListener('click', e=>toggleSeriesFocus(e.currentTarget.dataset.series));
+  const cur = box.querySelector('.series-item.current');
+  const listEl = box.querySelector('.series-list');
+  if(cur && listEl) listEl.scrollTop = Math.max(0, cur.offsetTop - listEl.offsetTop - listEl.clientHeight/2 + cur.offsetHeight/2);
+}
+function updateFocusPill(){
+  const pill = document.getElementById('focusPill');
+  pill.hidden = !focusSeries;
+  document.getElementById('focusPillName').textContent = focusSeries || '';
+}
+function toggleSeriesFocus(name){
+  if(focusSeries===name){ focusSeries = null; }
+  else {
+    focusSeries = name;
+    // show the whole series at once: fit the map to every stop of every title in it
+    const pts = [];
+    (SERIES_MAP[name]||[]).forEach(x=>x.locations.forEach(l=>pts.push(project(l.lat,l.lon))));
+    if(pts.length){ fitMapTo(pts); }
+  }
+  updateFocusPill();
+  applyFilters();
+}
+
+/* ---------------- Suggest an edit ----------------
+   The form POSTs JSON to SUGGESTION_ENDPOINT. Leave it blank for now: the form works,
+   shows a "test mode" note and writes the payload to the browser console, but sends nothing.
+   When the inbox exists, paste in the URL of a form service (Formspree, Formsubmit, a Google
+   Apps Script web app, etc.) that forwards submissions to it. */
+const SUGGESTION_ENDPOINT = ''; // PLACEHOLDER: no inbox connected yet
+function populateTitleList(){
+  const dl = document.getElementById('titleList');
+  if(!dl) return;
+  dl.innerHTML = '';
+  const seen = new Set();
+  BOOKS.forEach(b=>{
+    if(seen.has(b.title)) return;
+    seen.add(b.title);
+    const o = document.createElement('option'); o.value = b.title; dl.appendChild(o);
+  });
+}
+function initSuggest(){
+  const dlg = document.getElementById('suggestDialog');
+  const form = document.getElementById('suggestForm');
+  const entriesEl = document.getElementById('suggestEntries');
+  const addBtn = document.getElementById('suggestAdd');
+  const errEl = document.getElementById('suggestError');
+  const submitBtn = document.getElementById('suggestSubmit');
+  const thanks = document.getElementById('suggestThanks');
+  let mode = 'new', counter = 0;
+  const MAX_ENTRIES = 10;
+
+  const COPY = {
+    'new':  { notesLabel:'Additional information', notesHelp:'A short synopsis, whether it is part of a series (and which number), roughly when it is set, anything that helps us place it.', notesReq:false, authorReq:true },
+    'edit': { notesLabel:'Describe the edit', notesHelp:'What should change, for example a wrong date, a missing location, the series order, or a better synopsis, and what it should say instead.', notesReq:true, authorReq:false }
+  };
+
+  function entryCount(){ return entriesEl.querySelectorAll('.suggest-entry').length; }
+  function applyMode(){
+    const c = COPY[mode];
+    entriesEl.querySelectorAll('.suggest-entry').forEach(en=>{
+      en.querySelector('.f-title').setAttribute('list', mode==='edit' ? 'titleList' : '');
+      if(mode!=='edit') en.querySelector('.f-title').removeAttribute('list');
+      en.querySelector('.f-author').required = c.authorReq;
+      en.querySelector('.lbl-author').textContent = c.authorReq ? 'Author *' : 'Author';
+      en.querySelector('.f-notes').required = c.notesReq;
+      en.querySelector('.lbl-notes').firstChild.textContent = c.notesLabel + (c.notesReq ? ' *' : '');
+      en.querySelector('.help-notes').textContent = c.notesHelp;
+    });
+    addBtn.textContent = mode==='edit' ? '+ Add another edit' : '+ Add another title';
+  }
+  function renumber(){
+    const all = entriesEl.querySelectorAll('.suggest-entry');
+    all.forEach((en,i)=>{
+      en.querySelector('.entry-title').textContent = (mode==='edit' ? 'Edit ' : 'Title ') + (i+1);
+      en.querySelector('.entry-remove').hidden = all.length<2;
+    });
+    addBtn.hidden = all.length>=MAX_ENTRIES;
+  }
+  function addEntry(){
+    if(entryCount()>=MAX_ENTRIES) return;
+    counter++;
+    const en = document.createElement('div');
+    en.className = 'suggest-entry';
+    en.innerHTML = `
+      <div class="entry-head"><span class="entry-title"></span><button type="button" class="entry-remove">Remove</button></div>
+      <div class="suggest-grid">
+        <label class="suggest-field"><span>Title *</span><input type="text" class="f-title" maxlength="200" required></label>
+        <label class="suggest-field"><span class="lbl-author">Author *</span><input type="text" class="f-author" maxlength="200"></label>
+        <label class="suggest-field wide"><span>Principal locations</span><input type="text" class="f-loc" maxlength="300" placeholder="e.g. Sweden, Spain, Denmark, England"></label>
+        <label class="suggest-field wide lbl-notes"><span>Additional information</span><textarea class="f-notes" maxlength="2000"></textarea><span class="help help-notes"></span></label>
+      </div>`;
+    en.querySelector('.entry-remove').addEventListener('click', ()=>{ en.remove(); renumber(); });
+    entriesEl.appendChild(en);
+    applyMode(); renumber();
+    return en;
+  }
+  function resetForm(){
+    form.reset(); entriesEl.innerHTML = ''; counter = 0; mode = 'new';
+    errEl.textContent = ''; submitBtn.disabled = false; submitBtn.textContent = 'Send suggestion';
+    form.hidden = false; thanks.hidden = true;
+    form.email.setCustomValidity('');
+    addEntry();
+  }
+  function open(){
+    if(!thanks.hidden || entryCount()===0) resetForm();
+    document.body.style.overflow = 'hidden';
+    if(typeof dlg.showModal==='function') dlg.showModal(); else dlg.setAttribute('open','');
+    const first = entriesEl.querySelector('.f-title'); if(first) first.focus();
+  }
+  function close(){ if(typeof dlg.close==='function') dlg.close(); else dlg.removeAttribute('open'); document.body.style.overflow=''; }
+
+  document.getElementById('suggestBtn').addEventListener('click', open);
+  document.getElementById('suggestClose').addEventListener('click', close);
+  document.getElementById('suggestCancel').addEventListener('click', close);
+  document.getElementById('suggestDone').addEventListener('click', close);
+  document.getElementById('suggestAgain').addEventListener('click', ()=>{ resetForm(); const f=entriesEl.querySelector('.f-title'); if(f) f.focus(); });
+  dlg.addEventListener('click', e=>{ if(e.target===dlg) close(); }); // click on the dimmed backdrop
+  dlg.addEventListener('close', ()=>{ document.body.style.overflow=''; });
+  addBtn.addEventListener('click', ()=>{ const en = addEntry(); if(en) en.querySelector('.f-title').focus(); });
+  form.querySelectorAll('input[name="mode"]').forEach(r=>r.addEventListener('change', ()=>{ mode = form.mode.value; applyMode(); renumber(); }));
+  form.email.addEventListener('input', ()=>form.email.setCustomValidity(''));
+  form.consent.addEventListener('change', ()=>form.email.setCustomValidity(''));
+
+  function showThanks(testMode){
+    form.hidden = true; thanks.hidden = false;
+    document.getElementById('suggestTestMode').hidden = !testMode;
+    thanks.querySelector('#suggestDone').focus();
+  }
+  form.addEventListener('submit', async e=>{
+    e.preventDefault();
+    errEl.textContent = '';
+    if(form.website.value){ showThanks(false); return; } // honeypot: bots fill the hidden field
+    const email = form.email.value.trim();
+    const consent = form.consent.checked;
+    if(consent && !email){
+      form.email.setCustomValidity('Add your email so we can reach you, or untick the box.');
+      form.email.reportValidity();
+      return;
+    }
+    const entries = [...entriesEl.querySelectorAll('.suggest-entry')].map(en=>({
+      title: en.querySelector('.f-title').value.trim(),
+      author: en.querySelector('.f-author').value.trim(),
+      locations: en.querySelector('.f-loc').value.trim(),
+      notes: en.querySelector('.f-notes').value.trim()
+    }));
+    const payload = {
+      type: mode==='edit' ? 'edit to existing title' : 'new title',
+      entries,
+      name: form.name.value.trim(),
+      email,
+      optedIn: consent,
+      page: location.href.split('#')[0],
+      version: APP_VERSION,
+      submittedAt: new Date().toISOString()
+    };
+    submitBtn.disabled = true; submitBtn.textContent = 'Sending…';
+    if(!SUGGESTION_ENDPOINT){
+      console.info('[suggest-an-edit] no endpoint configured yet; this is what would be sent:', payload);
+      showThanks(true);
+      return;
+    }
+    try{
+      const res = await fetch(SUGGESTION_ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify(payload)});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      showThanks(false);
+    } catch(err){
+      console.warn('suggestion failed', err);
+      errEl.textContent = 'Sorry, that did not send. Please try again in a moment.';
+      submitBtn.disabled = false; submitBtn.textContent = 'Send suggestion';
+    }
+  });
+  resetForm();
+}
+
 let SEARCH_INDEX = [];
 let lastMatches = [];
 let searchOnly = false;
@@ -807,9 +1197,8 @@ function runSearch(q){
   return out.map(o=>o.b);
 }
 
-function goToBook(b){
-  // Zoom the map to the book's setting (all of its stops, if it has several).
-  const pts = b.locations.map(l=>project(l.lat,l.lon));
+function fitMapTo(pts){
+  // Zoom/pan the map so every given [x,y] point is comfortably in view.
   const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
   const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
   const cx=(x0+x1)/2, cy=(y0+y1)/2;
@@ -817,13 +1206,22 @@ function goToBook(b){
   zScale = Math.max(1, Math.min(6, fit));
   zTx = VB_W/2 - zScale*cx; zTy = VB_H/2 - zScale*cy;
   applyTransform();
+}
+
+// opts.zoom: 'always' (default, used by search) or 'ifNeeded' (series navigation:
+// only move the map if the book is currently off-screen).
+function goToBook(b, opts){
+  opts = opts || {};
+  if(!(opts.zoom==='ifNeeded' && isBookInViewport(b))){
+    fitMapTo(b.locations.map(l=>project(l.lat,l.lon)));
+  }
   userFilterChange = false; // let the filters re-sync so this book's series/topic/author are ticked
   selectedBookId = b.id;
   scrollToYear(b.yearStart);
   setTimeout(()=>{
     renderDetail(b);
     highlightPin(b.id);
-    document.querySelectorAll('#chipRow .chip').forEach(c=>c.classList.toggle('active', c.textContent===b.title));
+    document.querySelectorAll('#chipRow .chip').forEach(c=>c.classList.toggle('active', c.dataset.id===b.id));
   }, 260);
 }
 
@@ -1097,14 +1495,15 @@ function applyYearOpacity(y){
     const id = g.dataset.id;
     const b = BOOKS.find(x=>x.id===id);
     if(!b) return;
-    const op = showAll ? 1 : yearOpacity(b, y);
+    const ignoreYears = showAll || !!focusSeries;
+    const op = ignoreYears ? 1 : yearOpacity(b, y);
     g.style.opacity = op;
-    g.classList.toggle('geo-active', !showAll && op===1);
+    g.classList.toggle('geo-active', !ignoreYears && op===1);
   });
   document.querySelectorAll('.cluster').forEach(cEl=>{
     const ids = (cEl.dataset.ids||'').split(',').filter(Boolean);
     const books = ids.map(id=>BOOKS.find(x=>x.id===id)).filter(Boolean);
-    const op = showAll || books.length===0 ? 1 : Math.max(0, ...books.map(b=>yearOpacity(b,y)));
+    const op = showAll || focusSeries || books.length===0 ? 1 : Math.max(0, ...books.map(b=>yearOpacity(b,y)));
     cEl.style.opacity = op;
   });
 }
@@ -1140,10 +1539,12 @@ function renderDetail(b){
           ${b.published? `<span>First published <b>${b.published}</b></span>`:''}
           <span>Setting <b>${settingLabel}</b></span>
         </div>
+        ${seriesBoxHtml(b)}
         <a class="shop-link" href="https://www.amazon.com/s?k=${amazonQuery}" target="_blank" rel="noopener">Shop this edition</a>
       </div>
     </div>
   `;
+  wireSeriesBox(b);
 }
 
 function shade(hex, pct){
@@ -1225,7 +1626,7 @@ function autoSyncFilterAvailability(){
     rows.forEach(row=>{
       const cb = row.querySelector('input[type=checkbox]');
       const label = row.querySelector('span').textContent;
-      const hasMatch = BOOKS.some(b => getField(b)===label && (showAll || isYearRelevant(b,y)) && isBookInViewport(b));
+      const hasMatch = BOOKS.some(b => getField(b)===label && (showAll || focusSeries || isYearRelevant(b,y)) && isBookInViewport(b));
       cb.checked = hasMatch;
       row.classList.toggle('unavailable', !hasMatch);
       if(hasMatch){ activeSet.add(label); checkedCount++; } else { activeSet.delete(label); }
@@ -1240,6 +1641,7 @@ function autoSyncFilterAvailability(){
 
 
 /* ---------------- Load orchestration ---------------- */
+const APP_VERSION = 'v2.1';
 const DEFAULT_START_YEAR = 1800; // lands the initial view somewhere with real pin density, not just the sparse start of the range
 
 function loadBooks(newBooks, statusText){
@@ -1247,6 +1649,7 @@ function loadBooks(newBooks, statusText){
   [YEAR_MIN, YEAR_MAX] = computeYearRange(BOOKS);
   buildFilterControls();
   buildSearchIndex();
+  populateTitleList();
   if(window.resetSearch) window.resetSearch();
   buildTimelineAxis();
   buildPins(visibleBooks());
@@ -1333,6 +1736,9 @@ buildBaseMap();
 initZoomPan();
 initFilterUI();
 initSearch();
+initJump();
+initSuggest();
+document.getElementById('focusPillClear').addEventListener('click', ()=>{ if(focusSeries) toggleSeriesFocus(focusSeries); });
 initRulerInteraction();
 initData();
 </script>
