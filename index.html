@@ -802,11 +802,13 @@ function initZoomPan(){
 }
 
 /* ---------------- Filters (also the color legend) ---------------- */
+// A title has one primary topic (subgenre) plus optional extra_topics.
+function topicsOf(b){ return b.topics && b.topics.length ? b.topics : [b.subgenre]; }
 function visibleBooks(){
   return BOOKS.filter(b=>{
     const isPartOfRealSeries = (seriesCounts[b.series]||0) > 1;
     const seriesOk = !isPartOfRealSeries || activeSeries.has(b.series);
-    return seriesOk && activeGenres.has(b.genre) && activeSubgenres.has(b.subgenre) && activeAuthors.has(b.author)
+    return seriesOk && activeGenres.has(b.genre) && topicsOf(b).some(x=>activeSubgenres.has(x)) && activeAuthors.has(b.author)
       && (!searchMatchIds || searchMatchIds.has(b.id))
       && (!focusSeries || b.series===focusSeries);
   });
@@ -872,7 +874,7 @@ function buildFilterControls(){
   const allSeries = [...new Set(BOOKS.map(b=>b.series))]
     .filter(s=>seriesCounts[s]>1)
     .sort((a,b)=>a.localeCompare(b));
-  const allSubgenres = [...new Set(BOOKS.map(b=>b.subgenre))].sort((a,b)=>a.localeCompare(b));
+  const allSubgenres = [...new Set(BOOKS.flatMap(topicsOf))].sort((a,b)=>a.localeCompare(b));
   const allAuthors = [...new Set(BOOKS.map(b=>b.author).filter(Boolean))]
     .sort((a,b)=>surnameOf(a).localeCompare(surnameOf(b)));
 
@@ -1010,11 +1012,11 @@ function toggleSeriesFocus(name){
 }
 
 /* ---------------- Suggest an edit ----------------
-   The form POSTs JSON to SUGGESTION_ENDPOINT. Leave it blank for now: the form works,
+   The form POSTs JSON (sent as text/plain so Google Apps Script web apps accept it) to SUGGESTION_ENDPOINT. Leave it blank for now: the form works,
    shows a "test mode" note and writes the payload to the browser console, but sends nothing.
    When the inbox exists, paste in the URL of a form service (Formspree, Formsubmit, a Google
    Apps Script web app, etc.) that forwards submissions to it. */
-const SUGGESTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyn10jnfjwLhA_Qu9uI7v3IkVNDo5hamnt8WS4AkrcbSvNwCtaR5PMTbaF1ORje6apxHw/exec'; // PLACEHOLDER: no inbox connected yet
+const SUGGESTION_ENDPOINT = ''; // PLACEHOLDER: no inbox connected yet
 function populateTitleList(){
   const dl = document.getElementById('titleList');
   if(!dl) return;
@@ -1148,8 +1150,9 @@ function initSuggest(){
       return;
     }
     try{
-      const res = await fetch(SUGGESTION_ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify(payload)});
-      if(!res.ok) throw new Error('HTTP '+res.status);
+      // no-cors: Apps Script replies via a redirect that browsers often block from being read, even when the data was saved.
+      // The request still goes through; only a real network failure lands in the catch below.
+      await fetch(SUGGESTION_ENDPOINT, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload)});
       showThanks(false);
     } catch(err){
       console.warn('suggestion failed', err);
@@ -1170,7 +1173,7 @@ function normText(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'
 function buildSearchIndex(){
   SEARCH_INDEX = BOOKS.map(b=>({
     b, title:normText(b.title), author:normText(b.author), series:normText(b.series),
-    genre:normText(b.genre), topic:normText(b.subgenre), loc:normText(b.locations.map(l=>l.label).join(' ')), syn:normText(b.synopsis)
+    genre:normText(b.genre), topic:normText(topicsOf(b).join(' ')), loc:normText(b.locations.map(l=>l.label).join(' ')), syn:normText(b.synopsis)
   }));
 }
 function runSearch(q){
@@ -1531,7 +1534,7 @@ function renderDetail(b){
         <div class="cover-caption">placeholder cover</div>
       </div>
       <div class="dispatch-body">
-        <div class="kicker">${[ isStandalone(b) ? '' : (b.series + (b.seriesOrder? ' No. '+b.seriesOrder : '')), b.genre, b.subgenre ].filter(Boolean).join(' &middot; ')}</div>
+        <div class="kicker">${[ isStandalone(b) ? '' : (b.series + (b.seriesOrder? ' No. '+b.seriesOrder : '')), b.genre, topicsOf(b).join(' / ') ].filter(Boolean).join(' &middot; ')}</div>
         <h2>${b.title}</h2>
         <div class="byline">${b.author||''}<span class="dot">&middot;</span>${yearSpan}</div>
         <p class="synopsis">${b.synopsis}.</p>
@@ -1626,7 +1629,7 @@ function autoSyncFilterAvailability(){
     rows.forEach(row=>{
       const cb = row.querySelector('input[type=checkbox]');
       const label = row.querySelector('span').textContent;
-      const hasMatch = BOOKS.some(b => getField(b)===label && (showAll || focusSeries || isYearRelevant(b,y)) && isBookInViewport(b));
+      const hasMatch = BOOKS.some(b => [].concat(getField(b)).includes(label) && (showAll || focusSeries || isYearRelevant(b,y)) && isBookInViewport(b));
       cb.checked = hasMatch;
       row.classList.toggle('unavailable', !hasMatch);
       if(hasMatch){ activeSet.add(label); checkedCount++; } else { activeSet.delete(label); }
@@ -1635,7 +1638,7 @@ function autoSyncFilterAvailability(){
   }
   sync('seriesPanel', 'seriesCount', activeSeries, b=>b.series);
   sync('genrePanel', 'genreCount', activeGenres, b=>b.genre);
-  sync('subgenrePanel', 'subgenreCount', activeSubgenres, b=>b.subgenre);
+  sync('subgenrePanel', 'subgenreCount', activeSubgenres, b=>topicsOf(b));
   sync('authorPanel', 'authorCount', activeAuthors, b=>b.author);
 }
 
@@ -1702,6 +1705,9 @@ function parseCsvToBooks(csvText){
       title: (row.title||'').trim(), author: (row.author||'').trim(),
       genre: (row.genre||'').trim() || 'Other',
       subgenre: (row.topic||row.subgenre||'').trim() || 'Historical Fiction',
+      topics: (()=>{ const prim=(row.topic||row.subgenre||'').trim() || 'Historical Fiction';
+        const ex=String(row.extra_topics||'').split(/[;|]/).map(s=>s.trim()).filter(Boolean);
+        return [...new Set([prim,...ex])]; })(),
       yearStart: Number(row.year_start)||0,
       yearEnd: row.year_end!=='' && row.year_end!=null ? Number(row.year_end) : (Number(row.year_start)||0),
       published: row.published? Number(row.published) : null,
