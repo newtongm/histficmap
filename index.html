@@ -1016,7 +1016,7 @@ function toggleSeriesFocus(name){
    shows a "test mode" note and writes the payload to the browser console, but sends nothing.
    When the inbox exists, paste in the URL of a form service (Formspree, Formsubmit, a Google
    Apps Script web app, etc.) that forwards submissions to it. */
-const SUGGESTION_ENDPOINT = ''; // PLACEHOLDER: no inbox connected yet
+const SUGGESTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyn10jnfjwLhA_Qu9uI7v3IkVNDo5hamnt8WS4AkrcbSvNwCtaR5PMTbaF1ORje6apxHw/exec'; // Google Apps Script web app -> suggestions Sheet
 function populateTitleList(){
   const dl = document.getElementById('titleList');
   if(!dl) return;
