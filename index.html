@@ -215,6 +215,8 @@
   .suggest-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .suggest-field{ display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--ink-soft); margin-bottom:10px; }
   .suggest-field.wide{ grid-column:1 / -1; }
+  .year-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:0; }
+  @media (max-width:560px){ .year-row{ grid-template-columns:1fr; } }
   .suggest-field input, .suggest-field textarea{ font:inherit; font-size:14.5px; color:var(--ink); background:var(--paper); border:1px solid var(--line-strong); border-radius:4px; padding:8px 10px; }
   .suggest-field textarea{ min-height:84px; resize:vertical; }
   .suggest-field input:focus, .suggest-field textarea:focus{ outline:2px solid var(--brass-deep); outline-offset:-1px; }
@@ -1080,6 +1082,11 @@ function initSuggest(){
         <label class="suggest-field"><span>Title *</span><input type="text" class="f-title" maxlength="200" required></label>
         <label class="suggest-field"><span class="lbl-author">Author *</span><input type="text" class="f-author" maxlength="200"></label>
         <label class="suggest-field wide"><span>Principal locations</span><input type="text" class="f-loc" maxlength="300" placeholder="e.g. Sweden, Spain, Denmark, England"></label>
+        <div class="suggest-field wide year-row">
+          <label class="suggest-field"><span>Story starts (year)</span><input type="text" class="f-ys" maxlength="12" inputmode="text" placeholder="e.g. 982 or 50 BCE"></label>
+          <label class="suggest-field"><span>Story ends (year)</span><input type="text" class="f-ye" maxlength="12" inputmode="text" placeholder="e.g. 1007"></label>
+          <label class="suggest-field"><span>Year published</span><input type="text" class="f-pub" maxlength="12" inputmode="numeric" placeholder="e.g. 1954"></label>
+        </div>
         <label class="suggest-field wide lbl-notes"><span>Additional information</span><textarea class="f-notes" maxlength="2000"></textarea><span class="help help-notes"></span></label>
       </div>`;
     en.querySelector('.entry-remove').addEventListener('click', ()=>{ en.remove(); renumber(); });
@@ -1134,6 +1141,9 @@ function initSuggest(){
       title: en.querySelector('.f-title').value.trim(),
       author: en.querySelector('.f-author').value.trim(),
       locations: en.querySelector('.f-loc').value.trim(),
+      yearStart: en.querySelector('.f-ys').value.trim(),
+      yearEnd: en.querySelector('.f-ye').value.trim(),
+      published: en.querySelector('.f-pub').value.trim(),
       notes: en.querySelector('.f-notes').value.trim()
     }));
     const payload = {
