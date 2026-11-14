@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Historical Fiction Atlas v2.1 (public site) -->
+<!-- Historical Fiction Atlas v2.2 (public site) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -162,6 +162,7 @@
   .meta-row{ display:flex; gap:22px; flex-wrap:wrap; font-size:13px; color:var(--ink-soft); margin-bottom:16px; }
   .meta-row b{ color:var(--ink); font-weight:600; }
   .shop-link{ display:inline-block; font-size:14px; color:var(--paper); background:var(--ink); padding:9px 16px; border-radius:3px; text-decoration:none; border:1px solid var(--ink); }
+  .aff-note{ font-size:12px; color:var(--ink-faint); margin-top:6px; }
   .shop-link:hover{ background:var(--brass-deep); border-color:var(--brass-deep); }
 
   footer.note{ margin-top:22px; font-size:12.5px; color:var(--ink-faint); font-style:italic; line-height:1.5; max-width:74ch; }
@@ -341,9 +342,10 @@
     Nearby pins merge into numbered clusters; click one to fan its members out around a central point
     (click the center to collapse it again). A dashed trail means the story moves between places; its pin marks where it starts. Pin colors show a book's genre and double as the
     Genre filter. The Series, Genre, Topic and Author filters only list what is on the map at the selected date and view.
+    As an Amazon Associate I earn from qualifying purchases: "Shop this edition" links go to Amazon, and I may earn a commission if you buy through them, at no extra cost to you.
   </footer>
 
-  <p class="catalog-count"><span id="subtitleText">Loading&hellip;</span><span class="version">v2.1</span></p>
+  <p class="catalog-count"><span id="subtitleText">Loading&hellip;</span><span class="version">v2.2</span></p>
   </div>
   <button type="button" class="suggest-btn" id="suggestBtn">Suggest an edit</button>
   </div>
@@ -385,6 +387,7 @@
             <div class="policy">
               <p><b>What we collect.</b> Only what you type into this form: the titles and details you suggest and, if you choose to give them, your name and email address.</p>
               <p><b>How we use it.</b> We use your suggestions to improve the atlas. We use your name and email only to follow up about your suggestion and, if you ticked the box above, to send occasional relevant updates about the atlas. You can unsubscribe at any time.</p>
+              <p><b>Amazon links.</b> "Shop this edition" buttons are Amazon affiliate links. If you click one, Amazon may use cookies to record the visit and I may earn a commission on qualifying purchases. This form does not share your details with Amazon.</p>
               <p><b>What we never do.</b> We will not sell, rent or trade your personal information, and we will not share it with anyone else, other than the service that delivers this form to our inbox. If a suggestion is added to the public map, your name and email are never published with it.</p>
               <p><b>Your choices.</b> You can ask us to delete your details at any time by sending a message through this form.</p>
             </div>
@@ -1543,7 +1546,8 @@ function renderDetail(b){
           <span>Setting <b>${settingLabel}</b></span>
         </div>
         ${seriesBoxHtml(b)}
-        <a class="shop-link" href="https://www.amazon.com/s?k=${amazonQuery}" target="_blank" rel="noopener">Shop this edition</a>
+        <a class="shop-link" href="${amazonUrl(b)}" target="_blank" rel="noopener">Shop this edition</a>
+        <div class="aff-note">As an Amazon Associate I earn from qualifying purchases.</div>
       </div>
     </div>
   `;
@@ -1644,7 +1648,13 @@ function autoSyncFilterAvailability(){
 
 
 /* ---------------- Load orchestration ---------------- */
-const APP_VERSION = 'v2.1';
+const APP_VERSION = 'v2.2';
+// Amazon Associates ID (looks like 'yourname-20'). Leave blank until Amazon approves you; links work either way.
+const AMAZON_TAG = '';
+function amazonUrl(b){
+  const q = encodeURIComponent(b.title + ' ' + (b.author||''));
+  return 'https://www.amazon.com/s?k=' + q + (AMAZON_TAG ? '&tag=' + encodeURIComponent(AMAZON_TAG) : '');
+}
 const DEFAULT_START_YEAR = 1800; // lands the initial view somewhere with real pin density, not just the sparse start of the range
 
 function loadBooks(newBooks, statusText){
@@ -1668,7 +1678,7 @@ function loadBooks(newBooks, statusText){
    Columns: id, series, series_order, title, author, genre, subgenre, year_start,
    year_end, published, synopsis, lat, lon, location_label, extra_locations
    (extra_locations format: "lat|lon|label;lat|lon|label" for extra stops). */
-const DATA_SOURCE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbR_sSuMcqTl-vDlKwZgdbH8RJrdS5FUWAbX7KcE3EEEFThQT8vye_V2xOjzyzXQMcYPxTh64NRsv2/pub?output=csv';
+const DATA_SOURCE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTYlIv6ldBChwBTZJXMvGxHRvplPjxxXPA9C_mGztd-2lnJtImSoroILaFeho1YfqahmHWeypUILd7v/pub?gid=0&single=true&output=csv';
 
 function slugify(s){ return String(s||'book').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 
